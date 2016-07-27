@@ -15,6 +15,8 @@
 
          HanoiData m_data = new HanoiData();
 
+         HanoiNode m_picked;
+
          [MenuItem("Window/VisualizerWindow")]
          static void Create()
          {
@@ -63,41 +65,15 @@
              if (r.callStats == null)
                  return;
 
-             m_drawingCounts = 0;
+             HanoiUtil.DrawingCounts = 0;
              float startTime = 0.0f;
-             DrawHanoiRecursively(r.callStats, startTime);
-             Debug.LogFormat("time: {0}, drawingCounts: {1}", Time.time, m_drawingCounts);
+             HanoiUtil.DrawRecursively(r.callStats, startTime, m_stackHeight, m_data.MaxStackLevel);
+
+             float width = Mathf.Abs(ViewToDrawingTransformPoint(new Vector2(200, 0)).x - ViewToDrawingTransformPoint(new Vector2(0, 0)).x);
+             HanoiUtil.DrawLabelsRecursively(r.callStats, startTime, m_stackHeight, m_data.MaxStackLevel, width);
+             Debug.LogFormat("time: {0}, drawingCounts: {1}", Time.time, HanoiUtil.DrawingCounts);
          }
 
-         int m_drawingCounts = 0;
-         private void DrawHanoiRecursively(HanoiNode n, float startTime)
-         {
-             //if (n.stackLevel > 2)
-             //    return;
-
-             int hash = n.GetHashCode();
-             Color c;
-             if (!m_colors.TryGetValue(hash, out c))
-             {
-                 m_colors[hash] = c = Random.ColorHSV();
-             }
-
-             Handles.DrawSolidRectangleWithOutline(new Rect(startTime, m_stackHeight * (m_data.MaxStackLevel - n.stackLevel - 1), n.timeConsuming, m_stackHeight), c, c);
-             m_drawingCounts++;
-
-             float accum = startTime;
-             for (int i = 0; i < n.Children.Count; i++)
-             {
-                 //accum += n.Children[i].interval;
-                 if (i > 0)
-                 {
-                     //accum += n.Children[i - 1].interval;
-                     accum += n.Children[i - 1].timeConsuming;
-                 }
-
-                 DrawHanoiRecursively(n.Children[i], accum);
-             }
-         }
 
          public Vector2 ViewToDrawingTransformPoint(Vector2 lhs)
          { return new Vector2((lhs.x - m_Translation.x) / m_Scale.x, (lhs.y - m_Translation.y) / m_Scale.y); }
@@ -121,33 +97,86 @@
 
          private void CheckForInput()
          {
-             if (Event.current.type == EventType.mouseDrag)
+             switch (Event.current.type)
              {
-                 if (Event.current.button == 1)
-                 {
-                     m_Translation.x += Event.current.delta.x;
-                     Repaint();
-                 }
-             }
+                 case EventType.MouseMove:
+                     {
+                         if (m_picked != null)
+                         {
+                             HanoiUtil.ForeachInParentChain(m_picked, (n) => { n.highlighted = false; });
+                             m_picked = null;
+                         }
 
-             if (Event.current.type == EventType.scrollWheel)
-             {
-                 float delta = Event.current.delta.x + Event.current.delta.y;
-                 delta = -delta;
+                         HanoiNode picked = PickHanoiRecursively(m_data.Root.callStats, mousePositionInDrawing);
+                         if (picked != null)
+                         {
+                             HanoiUtil.ForeachInParentChain(picked, (n) => { n.highlighted = true; });
+                             m_picked = picked;
 
-                 // Scale multiplier. Don't allow scale of zero or below!
-                 float scale = Mathf.Max(0.03F, 1 + delta * 0.03F);
+                             Debug.LogFormat("Picked: f {0}, m {1}", m_picked.funcName, m_picked.moduleName);
 
-                 // Offset to make zoom centered around cursor position
-                 m_Translation.x -= mousePositionInDrawing.x * (scale - 1) * m_Scale.x;
+                             Repaint();
+                         }
+                         else
+                         {
+                             Debug.LogFormat("Picked nothing.");
+                         }
+                     }
+                     break;
 
-                 // Apply zooming
-                 m_Scale.x *= scale;
+                 case EventType.MouseDrag:
+                     if (Event.current.button == 1)
+                     {
+                         m_Translation.x += Event.current.delta.x;
+                         Repaint();
+                     }
+                     break;
 
-                 Repaint();
+                 case EventType.ScrollWheel:
+                     {
+                         float delta = Event.current.delta.x + Event.current.delta.y;
+                         delta = -delta;
+
+                         // Scale multiplier. Don't allow scale of zero or below!
+                         float scale = Mathf.Max(0.03F, 1 + delta * 0.03F);
+
+                         // Offset to make zoom centered around cursor position
+                         m_Translation.x -= mousePositionInDrawing.x * (scale - 1) * m_Scale.x;
+
+                         // Apply zooming
+                         m_Scale.x *= scale;
+
+                         Repaint();
+                     }
+                     break;
+
+                 default:
+                     break;
              }
          }
 
-         Dictionary<int, Color> m_colors = new Dictionary<int,Color>();
+
+         private HanoiNode PickHanoiRecursively(HanoiNode n, Vector2 mousePos)
+         {
+             if (!n.HasValidRect())
+                 return null;
+
+             if (n.renderRect.xMin > mousePos.x || n.renderRect.xMax < mousePos.x)
+                 return null;
+
+             if (n.renderRect.Contains(mousePos))
+                 return n;
+
+             for (int i = 0; i < n.Children.Count; i++)
+             {
+                 HanoiNode child = PickHanoiRecursively(n.Children[i], mousePos);
+                 if (child != null)
+                 {
+                     return child;
+                 }
+             }
+
+             return null;
+         }
      }
  

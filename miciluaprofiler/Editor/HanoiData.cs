@@ -12,11 +12,6 @@ public enum eHanoiCallType
     Lua,
 }
 
-public class HanoiConst
-{
-    public const int BAD_NUM = -1;
-}
-
 public class HanoiRoot
 {
     public string objectName = "";
@@ -30,9 +25,11 @@ public class HanoiRoot
 public class HanoiNode
 {
     public static int s_count = 0;
-    public HanoiNode()
+    public HanoiNode(HanoiNode parent)
     {
         s_count++;
+
+        Parent = parent;
     }
 
     public string moduleName = "";
@@ -47,7 +44,29 @@ public class HanoiNode
     public float timeConsuming = 0.0f;
     public float interval = 0.0f;
 
+    public HanoiNode Parent;
     public List<HanoiNode> Children = new List<HanoiNode>();
+
+    // rendering properties
+    public bool HasValidRect() { return renderRect.width > 0 && renderRect.height > 0; }
+    public Rect renderRect;
+
+    public bool highlighted = false;
+
+
+    public Color GetNodeColor()
+    {
+        if (callType == eHanoiCallType.C)
+            return HanoiConst.GetDyeColor(DyeType.CFunc);
+
+        if (moduleName.StartsWith("@Lua"))
+            return HanoiConst.GetDyeColor(DyeType.LuaInFile);
+
+        if (moduleName.StartsWith("\\n"))
+            return HanoiConst.GetDyeColor(DyeType.LuaMemBytes);
+
+        return HanoiConst.GetDyeColor(DyeType.Default);
+    }
 }
 
 public class HanoiData 
@@ -122,7 +141,7 @@ public class HanoiData
             }
             if (key == "callStats" && j.type == JSONObject.Type.OBJECT)
             {
-                HanoiNode node = new HanoiNode();
+                HanoiNode node = new HanoiNode(null);
                 if (readObject(j, node))
                 {
                     root.callStats = node;                    
@@ -192,7 +211,7 @@ public class HanoiData
             {
                 foreach (JSONObject childJson in j.list)
                 {
-                    HanoiNode child = new HanoiNode();
+                    HanoiNode child = new HanoiNode(node);
                     if (readObject(childJson, child))
                     {
                         node.Children.Add(child);
