@@ -52,6 +52,11 @@ public class HanoiNode
 
 public class HanoiData 
 {
+    public HanoiRoot Root { get { return m_hanoiData; } }
+
+    public int MaxStackLevel { get { return m_maxStackLevel; } }
+    int m_maxStackLevel = 0;
+
     JSONObject m_json;
     HanoiRoot m_hanoiData;
 
@@ -161,6 +166,11 @@ public class HanoiData
             if (key == "stackLevel" && j.type == JSONObject.Type.NUMBER)
             {
                 node.stackLevel = (int)j.n;
+
+                if (node.stackLevel > m_maxStackLevel)
+                {
+                    m_maxStackLevel = node.stackLevel;
+                }
             }
             if (key == "timeConsuming" && j.type == JSONObject.Type.NUMBER)
             {
