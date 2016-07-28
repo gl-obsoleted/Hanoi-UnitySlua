@@ -57,6 +57,9 @@ public class HanoiNode
 
     public Color GetNodeColor()
     {
+        if (this is HanoiBlankSpace)
+            return HanoiConst.GetDyeColor(DyeType.Blank);
+
         if (callType == eHanoiCallType.C)
             return HanoiConst.GetDyeColor(DyeType.CFunc);
 

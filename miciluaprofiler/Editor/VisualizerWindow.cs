@@ -11,7 +11,6 @@
 
          float m_winWidth = 0.0f;
          float m_winHeight = 0.0f;
-         float m_stackHeight = 0.0f;
 
          HanoiData m_data = new HanoiData();
 
@@ -57,7 +56,8 @@
 
              m_winWidth = position.width;
              m_winHeight = position.height;
-             m_stackHeight = (m_data.MaxStackLevel != 0) ? (m_winHeight / m_data.MaxStackLevel) : m_winHeight;
+
+             HanoiVars.StackHeight = (m_data.MaxStackLevel != 0) ? (m_winHeight / m_data.MaxStackLevel) : m_winHeight;
          }
 
          private void DrawHanoiData(HanoiRoot r)
@@ -65,14 +65,24 @@
              if (r.callStats == null)
                  return;
 
+             HanoiVars.LabelBackgroundWidth = GetDrawingLengthByPanelPixels(200);
+             HanoiVars.BlankSpaceWidth = GetDrawingLengthByPanelPixels(50);
+             HanoiVars.DrawnStackCount = m_data.MaxStackLevel;
+
              HanoiUtil.DrawingCounts = 0;
-             HanoiUtil.DrawRecursively(r.callStats, m_stackHeight, m_data.MaxStackLevel);
 
-             float width = Mathf.Abs(ViewToDrawingTransformPoint(new Vector2(200, 0)).x - ViewToDrawingTransformPoint(new Vector2(0, 0)).x);
-             HanoiUtil.DrawLabelsRecursively(r.callStats, m_stackHeight, m_data.MaxStackLevel, width);
-             Debug.LogFormat("time: {0}, drawingCounts: {1}", Time.time, HanoiUtil.DrawingCounts);
+             // draw 3 passes
+
+             HanoiUtil.DrawingShrinkedTotal = 0;
+             HanoiUtil.DrawingShrinkedAccumulated = 0;
+             HanoiUtil.DrawBlankSpaceRecursively(r.callStats);
+
+             HanoiUtil.DrawingShrinkedTotal = HanoiUtil.DrawingShrinkedAccumulated;
+             HanoiUtil.DrawingShrinkedAccumulated = 0;
+             HanoiUtil.DrawRecursively(r.callStats);
+
+             HanoiUtil.DrawLabelsRecursively(r.callStats);
          }
-
 
          public Vector2 ViewToDrawingTransformPoint(Vector2 lhs)
          { return new Vector2((lhs.x - m_Translation.x) / m_Scale.x, (lhs.y - m_Translation.y) / m_Scale.y); }
@@ -92,6 +102,11 @@
          public Vector2 mousePositionInDrawing
          {
              get { return ViewToDrawingTransformPoint(Event.current.mousePosition); }
+         }
+
+         public float GetDrawingLengthByPanelPixels(int pixels)
+         {
+             return Mathf.Abs(ViewToDrawingTransformPoint(new Vector2(pixels, 0)).x - ViewToDrawingTransformPoint(new Vector2(0, 0)).x); 
          }
 
          private void CheckForInput()

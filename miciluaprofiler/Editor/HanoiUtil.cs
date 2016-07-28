@@ -19,9 +19,32 @@ public class HanoiUtil
         }
     }
 
+    public static void DrawBlankSpaceRecursively(HanoiNode n)
+    {
+        if (n is HanoiBlankSpace)
+        {
+            Color c = n.GetNodeColor();
+            c.a = 0.5f;
+            n.renderRect = new Rect((float)n.beginTime - DrawingShrinkedAccumulated, 0.0f, HanoiVars.BlankSpaceWidth, HanoiVars.StackHeight * (HanoiVars.DrawnStackCount - 1));
+            HanoiUtil.DrawingShrinkedAccumulated += (float)n.timeConsuming - HanoiVars.BlankSpaceWidth;
+            Handles.DrawSolidRectangleWithOutline(n.renderRect, c, c);
+        }
+
+        if (n.stackLevel == 0)
+        {
+            for (int i = 0; i < n.Children.Count; i++)
+            {
+                DrawBlankSpaceRecursively(n.Children[i]);
+            }
+        }
+    }
+
+    static public float DrawingShrinkedAccumulated = 0.0f;
+    static public float DrawingShrinkedTotal = 0.0f;
     static public int DrawingCounts = 0;
     static Dictionary<int, Color> m_colors = new Dictionary<int, Color>();
-    public static void DrawRecursively(HanoiNode n, float stackHeight, int maxStackLevel)
+
+    public static void DrawRecursively(HanoiNode n)
     {
         int hash = n.GetHashCode();
         Color c;
@@ -30,9 +53,15 @@ public class HanoiUtil
             m_colors[hash] = c = n.GetNodeColor();
         }
 
-        if (!n.HasValidRect())
+        if (n is HanoiBlankSpace)
         {
-            n.renderRect = new Rect((float)n.beginTime, stackHeight * (maxStackLevel - n.stackLevel - 1), (float)n.timeConsuming, stackHeight);
+            HanoiUtil.DrawingShrinkedAccumulated += (float)n.timeConsuming - HanoiVars.BlankSpaceWidth;
+        }
+        else
+        {
+            float renderedWidth = (float)n.timeConsuming;
+
+            n.renderRect = new Rect((float)n.beginTime - DrawingShrinkedAccumulated, HanoiVars.StackHeight * (HanoiVars.DrawnStackCount - n.stackLevel - 1), (float)n.timeConsuming, HanoiVars.StackHeight);
         }
 
         Handles.DrawSolidRectangleWithOutline(n.renderRect, c, n.highlighted ? Color.white : c);
@@ -41,17 +70,17 @@ public class HanoiUtil
 
         for (int i = 0; i < n.Children.Count; i++)
         {
-            DrawRecursively(n.Children[i], stackHeight, maxStackLevel);
+            DrawRecursively(n.Children[i]);
         }
     }
 
-    public static void DrawLabelsRecursively(HanoiNode n, float stackHeight, int maxStackLevel, float textBackgroundWidth)
+    public static void DrawLabelsRecursively(HanoiNode n)
     {
         if (n.highlighted)
         {
             Rect r = n.renderRect;
 
-            r.width = textBackgroundWidth;
+            r.width = HanoiVars.LabelBackgroundWidth;
             r.height = 45;
             Color bg = Color.black;
             bg.a = 0.5f;
@@ -65,7 +94,7 @@ public class HanoiUtil
 
         for (int i = 0; i < n.Children.Count; i++)
         {
-            DrawLabelsRecursively(n.Children[i], stackHeight, maxStackLevel, textBackgroundWidth);
+            DrawLabelsRecursively(n.Children[i]);
         }
     }
 }

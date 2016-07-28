@@ -9,6 +9,7 @@ public enum DyeType
     CFunc,
     LuaMemBytes,
     LuaInFile,
+    Blank,
 }
 
 public class DyePattern
@@ -33,6 +34,7 @@ public class HanoiConst
         { DyeType.CFunc,        new DyePattern { hueMin = 208.0f / 360.0f, hueMax = 208.0f / 360.0f, satMin = 0.5f, satMax = 0.9f, valMin = 0.5f, valMax = 0.9f} },   // blue
         { DyeType.LuaMemBytes,  new DyePattern { hueMin = 80.0f / 360.0f, hueMax = 120.0f / 360.0f, satMin = 0.3f, satMax = 0.6f, valMin = 0.8f, valMax = 1.0f} },    // green
         { DyeType.LuaInFile,    new DyePattern { hueMin = 15.0f / 360.0f, hueMax = 30.0f / 360.0f, satMin = 0.5f, satMax = 0.9f, valMin = 0.5f, valMax = 0.9f} },     // red / orange
+        { DyeType.Blank,    new DyePattern { hueMin = 0.0f / 360.0f, hueMax = 0.0f / 360.0f, satMin = 0.0f, satMax = 0.0f, valMin = 0.3f, valMax = 0.3f} },     // red / orange
     };
 
     public static Color GetDyeColor(DyeType t)
