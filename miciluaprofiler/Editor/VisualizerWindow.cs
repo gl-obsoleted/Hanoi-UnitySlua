@@ -5,7 +5,7 @@
      public class VisualizerWindow : EditorWindow
      {
          [SerializeField]
-         internal Vector2 m_Scale = new Vector2(20, 1);
+         internal Vector2 m_Scale = new Vector2(20.0f, 1.0f);
          [SerializeField]
          internal Vector2 m_Translation = new Vector2(0, 0);
 
@@ -66,11 +66,10 @@
                  return;
 
              HanoiUtil.DrawingCounts = 0;
-             float startTime = 0.0f;
-             HanoiUtil.DrawRecursively(r.callStats, startTime, m_stackHeight, m_data.MaxStackLevel);
+             HanoiUtil.DrawRecursively(r.callStats, m_stackHeight, m_data.MaxStackLevel);
 
              float width = Mathf.Abs(ViewToDrawingTransformPoint(new Vector2(200, 0)).x - ViewToDrawingTransformPoint(new Vector2(0, 0)).x);
-             HanoiUtil.DrawLabelsRecursively(r.callStats, startTime, m_stackHeight, m_data.MaxStackLevel, width);
+             HanoiUtil.DrawLabelsRecursively(r.callStats, m_stackHeight, m_data.MaxStackLevel, width);
              Debug.LogFormat("time: {0}, drawingCounts: {1}", Time.time, HanoiUtil.DrawingCounts);
          }
 

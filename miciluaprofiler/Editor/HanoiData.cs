@@ -41,8 +41,10 @@ public class HanoiNode
     public int lineDefined = HanoiConst.BAD_NUM;
 
     public eHanoiCallType callType = eHanoiCallType.None;
-    public float timeConsuming = 0.0f;
-    public float interval = 0.0f;
+    public double timeConsuming = 0.0f;
+    public double beginTime = 0.0f;
+    public double endTime = 0.0f;
+    public double interval = 0.0f;
 
     public HanoiNode Parent;
     public List<HanoiNode> Children = new List<HanoiNode>();
@@ -144,7 +146,9 @@ public class HanoiData
                 HanoiNode node = new HanoiNode(null);
                 if (readObject(j, node))
                 {
-                    root.callStats = node;                    
+                    root.callStats = node;
+                    root.callStats.endTime = root.callStats.endTime - root.callStats.beginTime;
+                    root.callStats.beginTime = 0.0f;
                 }
             }
         }
@@ -190,6 +194,14 @@ public class HanoiData
                 {
                     m_maxStackLevel = node.stackLevel;
                 }
+            }
+            if (key == "begintime" && j.type == JSONObject.Type.NUMBER)
+            {
+                node.beginTime = j.n;
+            }
+            if (key == "endtime" && j.type == JSONObject.Type.NUMBER)
+            {
+                node.endTime = j.n;
             }
             if (key == "timeConsuming" && j.type == JSONObject.Type.NUMBER)
             {
