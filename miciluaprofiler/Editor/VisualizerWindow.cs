@@ -5,7 +5,7 @@
      public class VisualizerWindow : EditorWindow
      {
          [SerializeField]
-         internal Vector2 m_Scale = new Vector2(20.0f, 1.0f);
+         internal Vector2 m_Scale = new Vector2(1.0f, 1.0f);
          [SerializeField]
          internal Vector2 m_Translation = new Vector2(0, 0);
 

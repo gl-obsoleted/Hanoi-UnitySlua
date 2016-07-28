@@ -41,10 +41,9 @@ public class HanoiNode
     public int lineDefined = HanoiConst.BAD_NUM;
 
     public eHanoiCallType callType = eHanoiCallType.None;
-    public double timeConsuming = 0.0f;
-    public double beginTime = 0.0f;
-    public double endTime = 0.0f;
-    public double interval = 0.0f;
+    public double timeConsuming = 0.0;
+    public double beginTime = 0.0;
+    public double endTime = 0.0;
 
     public HanoiNode Parent;
     public List<HanoiNode> Children = new List<HanoiNode>();
@@ -68,6 +67,14 @@ public class HanoiNode
             return HanoiConst.GetDyeColor(DyeType.LuaMemBytes);
 
         return HanoiConst.GetDyeColor(DyeType.Default);
+    }
+}
+
+public class HanoiBlankSpace : HanoiNode
+{
+    public HanoiBlankSpace(HanoiNode parent)
+        : base(parent)
+    {
     }
 }
 
@@ -147,7 +154,7 @@ public class HanoiData
                 if (readObject(j, node))
                 {
                     root.callStats = node;
-                    root.callStats.endTime = root.callStats.endTime - root.callStats.beginTime;
+                    root.callStats.timeConsuming = root.callStats.endTime = root.callStats.endTime - root.callStats.beginTime;
                     root.callStats.beginTime = 0.0f;
                 }
             }
@@ -207,10 +214,6 @@ public class HanoiData
             {
                 node.timeConsuming = j.n;
             }
-            if (key == "interval" && j.type == JSONObject.Type.NUMBER)
-            {
-                node.interval = j.n;
-            }
             if (key == "currentLine" && j.type == JSONObject.Type.NUMBER)
             {
                 node.currentLine = (int)j.n;
@@ -221,12 +224,34 @@ public class HanoiData
             }
             if (key == "children" && j.type == JSONObject.Type.ARRAY)
             {
+                bool isOnStackZero = node.stackLevel == 0;
+                double lastStackOneEnd = 0.0;
+
                 foreach (JSONObject childJson in j.list)
                 {
                     HanoiNode child = new HanoiNode(node);
                     if (readObject(childJson, child))
                     {
+                        if (isOnStackZero)
+                        {
+                            double interval = child.beginTime - lastStackOneEnd;
+                            if (lastStackOneEnd > 0 && interval > HanoiConst.ShrinkThreshold)
+                            {
+                                HanoiBlankSpace bspace = new HanoiBlankSpace(node);
+                                bspace.stackLevel = 1;
+                                bspace.beginTime = lastStackOneEnd;
+                                bspace.endTime = child.beginTime;
+                                bspace.timeConsuming = bspace.endTime - bspace.beginTime;
+                                node.Children.Add(bspace);
+                            }
+                        }
+
                         node.Children.Add(child);
+
+                        if (isOnStackZero)
+                        {
+                            lastStackOneEnd = child.endTime;
+                        }
                     }
                 }
             }
