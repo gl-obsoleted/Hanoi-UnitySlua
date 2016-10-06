@@ -64,6 +64,7 @@ public class Main : MonoBehaviour
     {
         isStarted = true;
         Lua.Instance.StartLuaProfiler();
+        Lua.Instance.m_LuaSvr.start("main");
     }
 
     public void onClickStop()
@@ -72,13 +73,18 @@ public class Main : MonoBehaviour
         Lua.Instance.StopLuaProfiler();
     }
 
-    public void onClickFrame()
+    public void onClickCall()
     {
         if(isStarted)
         {
+<<<<<<< HEAD
             //Lua.Instance.m_LuaSvr.start("main");
             //object o = Lua.Instance.m_LuaSvr.luaState.getFunction("foo").call(1, 2, 3);
             Lua.Instance.SetFrameInfo();
+=======
+            object o = Lua.Instance.m_LuaSvr.luaState.getFunction("foo").call(1, 2, 3);
+            //Lua.Instance.SetFrameInfo();
+>>>>>>> db4ac61... 实现新的LayerOut布局方式
         }
     }
 
