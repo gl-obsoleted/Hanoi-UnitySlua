@@ -1,15 +1,30 @@
 ﻿ using UnityEngine;
  using UnityEditor;
  using System.Collections.Generic;
-using System;
 using System.IO;
 using System.Collections;
+using System.Security;
      public class VisualizerWindow : EditorWindow
      {
+         public enum MouseInArea
+         {
+             none,
+             ControlScreen,
+             NavigationScreen ,
+             DetailScreen ,
+         };
+
          [SerializeField]
          internal Vector2 m_Scale = new Vector2(1.0f, 1.0f);
          [SerializeField]
          internal Vector2 m_Translation = new Vector2(0, 0);
+
+         MouseInArea m_mouseArea = MouseInArea.none;
+
+         float targetTranslationX = 0;
+         float targetTranslationInterval = 0;
+         float viewPointToGlobalTimeMarin = 10; 
+
          public static float m_winWidth = 0.0f;
          public static float m_winHeight = 0.0f;
 
@@ -25,18 +40,81 @@ using System.Collections;
          HanoiData m_data = new HanoiData();
          HanoiNode m_picked;
 
+         public bool m_isTestCallLua = false;
+
          int _selectedJsonFileIndex = -1;
          string[] _JsonFilesPath = new string[] { };
 
-         [MenuItem("Window/VisualizerWindow")]
+         [MenuItem("Window/"+Lua.g_editorWindow)]
          static void Create()
          {
-             // Get existing open window or if none, make a new one:
-             VisualizerWindow window = (VisualizerWindow)EditorWindow.GetWindow(typeof(VisualizerWindow));
-             window.Show();
-             window.wantsMouseMove = true;
-             window.CheckForResizing();
-             window.fitScreenSizeScale();
+             //// Get existing open window or if none, make a new one:
+             VisualizerWindow m_window = (VisualizerWindow)EditorWindow.GetWindow(typeof(VisualizerWindow));
+             m_window.Show();
+             m_window.wantsMouseMove = true;
+             m_window.CheckForResizing();
+         }
+
+         void Update()
+         {
+             if (m_isTestCallLua && Lua.Instance != null && Lua.Instance.m_LuaSvr != null)
+                 Lua.Instance.m_LuaSvr.luaState.getFunction("foo").call(1, 2, 3);
+             doTranslationAnimation();
+         }
+
+         private void doTranslationAnimation()
+         {
+             float delta = targetTranslationX - m_Translation.x;
+             if (Mathf.Abs(delta) >= targetTranslationInterval)
+             {
+                 if (delta > 0)
+                 {
+                     m_Translation.x += targetTranslationInterval;
+                 }
+                 else
+                 {
+                     m_Translation.x -= targetTranslationInterval;
+                 }
+                 Repaint();
+             }
+             else
+             {
+                 m_Translation.x = targetTranslationX;
+                 Repaint();
+             }
+         }
+             
+
+         public void onSessionMessage(string strInfo)
+         {
+             Debug.Log(strInfo);
+             
+             if (string.IsNullOrEmpty(strInfo))
+                 return;
+
+             JSONObject jsonContent = new JSONObject(strInfo);
+
+             if (!jsonContent)
+                 return;
+
+             if (jsonContent.type != JSONObject.Type.OBJECT)
+                 return;
+
+             VisualizerWindow myWindow = (VisualizerWindow)EditorWindow.GetWindow(typeof(VisualizerWindow));
+             myWindow.handleSessionMessage(jsonContent);
+             myWindow.Repaint();
+         }
+
+         private void handleSessionMessage(JSONObject jsonMsg) {
+             if (m_data == null || m_data.Root == null || m_data.Root.callStats == null)
+                 return;
+             m_data.handleMsgForDetailScreen(jsonMsg);
+             m_data.hanleMsgForNavigationScreen(jsonMsg);
+         }
+
+         void OnDestroy() {
+             if (!Lua.Instance.IsRegisterLuaProfilerCallback())
+                 Lua.Instance.UnRegisterLuaProfilerCallback();
          }
 
          public VisualizerWindow()
@@ -46,47 +124,73 @@ using System.Collections;
 
          public void OnGUI()
          {
+             handleCommandEvent();
              CheckForResizing();
              Handles.BeginGUI();
              Handles.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(1, 1, 1));
              //control窗口内容
              GUILayout.BeginArea(new Rect(0, m_controlScreenPosY, m_winWidth, m_controlScreenHeight));
-                 Rect w = new Rect();
-                 w.position = new Vector2(0, 0);
-                 w.width = m_winWidth;
-                 w.height = m_controlScreenHeight;
-                 Color bgw = Color.green;
-                 bgw.a = 0.5f;
-                 Handles.DrawSolidRectangleWithOutline(w,bgw,bgw);
+             {
                  drawGUIElement();
+             }
              GUILayout.EndArea();
+
              //navigation窗口内容
-             GUILayout.BeginArea(new Rect(0,m_navigationScreenPosY, m_winWidth, m_navigationScreenHeight));
-                 Rect r = new Rect();
-                 r.position = new Vector2(0,0);
-                 r.width = m_winWidth;
-                 r.height = m_navigationScreenHeight;
-                 Color bg = Color.red;
-                 bg.a = 0.5f;
-                 Handles.DrawSolidRectangleWithOutline(r, bg, bg);
+             GUILayout.BeginArea(new Rect(0, m_navigationScreenPosY, m_winWidth, m_navigationScreenHeight));
+             {
+                 if (m_data.isHanoiDataHasContent())
+                     GraphItWindow.DrawGraphs(position, this);
+             }
              GUILayout.EndArea();
-             if (m_data.isHanoiDataLoadSucc()) {
+
+             if (m_data.isHanoiDataLoadSucc())
+             {
                  CheckForInput();
                  //detail窗口内容
                  GUILayout.BeginArea(new Rect(0, m_detailScreenPosY, m_winWidth, m_detailScreenHeight));
                  {
                      Handles.matrix = Matrix4x4.TRS(m_Translation, Quaternion.identity, new Vector3(m_Scale.x, m_Scale.y, 1));
+                     
+                     HanoiUtil.TotalTimeConsuming = HanoiUtil.calculateTotalTimeConsuming(m_data.Root.callStats);
+                     HanoiUtil.CalculateFrameInterval(m_data.Root.callStats, null);
+                     calculateStackHeight();
+
                      calculateScreenClipRange();
-                     drawFrameInfo(m_data.Root.callStats, mousePositionInDrawing.x);
                      DrawHanoiData(m_data.Root);
+
                      drawTimeInterval();
-                     showMouseGlobalTime();
+                     drawFrameInfo(m_data.Root.callStats, mousePositionInDrawing.x);
+                     if(m_mouseArea == MouseInArea.DetailScreen)showMouseGlobalTime();
                  }
                  GUILayout.EndArea();
              }
+
              Handles.EndGUI();
          }
 
+         private void reInitHanoiRoot() {
+             GraphIt.Clear();
+             m_data.m_hanoiData = new HanoiRoot();
+             m_data.Root.callStats = new HanoiNode(null);
+             _selectedJsonFileIndex = _JsonFilesPath.Length - 1;
+         }
+
+         private void handleCommandEvent()
+         {
+             if (Event.current.commandName.Equals("AppStarted"))
+             {
+                 if((Lua.Instance!=null) &&!Lua.Instance.IsRegisterLuaProfilerCallback())
+                 {
+                     reInitHanoiRoot();
+                     Lua.Instance.RegisterLuaProfilerCallback(this.onSessionMessage);
+                 }
+             }
+
+             if (Event.current.commandName.Equals("AppStoped"))
+             {
+                 refreshCheckJasonFilesUpadate();
+             }
+         }
          private void drawGUIElement()
          {
              GUILayout.BeginHorizontal();
@@ -95,22 +199,27 @@ using System.Collections;
                  GUI.color = Color.white;
                  Handles.color = Color.white;
                  EditorGUIUtility.labelWidth =80;
-                 int currentSelectedIndex = EditorGUILayout.Popup(string.Format("jasonFiles"), _selectedJsonFileIndex, _JsonFilesPath, GUILayout.Width(350));
-                 loadSelectedSessions(currentSelectedIndex);
+                 int currentSelectedIndex = EditorGUILayout.Popup(string.Format("Sessions"), _selectedJsonFileIndex, _JsonFilesPath, GUILayout.Width(350));
+                 _selectedJsonFileIndex = currentSelectedIndex;
+                 if (GUILayout.Button("Load",GUILayout.Width(50)))
+                    loadSelectedSessions(currentSelectedIndex);
 
+                 GraphItWindow.SelectTimeLimitIndex = EditorGUILayout.Popup(string.Format("TimeLimit"), GraphItWindow.SelectTimeLimitIndex, new string[] { "none", "100", "80", "60", "40", "20" }, GUILayout.Width(180));
              }
              GUILayout.EndHorizontal();
          }
 
          private void loadSelectedSessions(int currentSelectedIndex)
          {
-             if (_selectedJsonFileIndex == currentSelectedIndex)
-                 return;
-
              try
              {
                  if (currentSelectedIndex < 0)
                      throw new System.ArgumentException(string.Format("invalid selected index ({0}). ", currentSelectedIndex));
+
+                 if(currentSelectedIndex == _JsonFilesPath.Length-1){
+                     reInitHanoiRoot();
+                     return;
+                 }
 
                  string file = getSessionsBySelectedIndex(HanoiUtil.GetVaildJsonFolders(), currentSelectedIndex);
                  if (!loadJsonData(file))
@@ -118,12 +227,13 @@ using System.Collections;
 
                  HanoiUtil.TotalTimeConsuming = HanoiUtil.calculateTotalTimeConsuming(m_data.Root.callStats);
                  HanoiUtil.CalculateFrameInterval(m_data.Root.callStats, null);
-                 _selectedJsonFileIndex = currentSelectedIndex;
+                 calculateStackHeight();
              }
-             catch (Exception ex)
+             catch (System.Exception ex)
              {
                  _selectedJsonFileIndex = -1;
                  Debug.LogErrorFormat("[Hanoi] Loading session failed. ({0})", ex.Message);
+                 EditorUtility.DisplayDialog("load sessions error", string.Format("[Hanoi] Loading session failed. ({0})", ex.Message), "确认");
              }
          }
 
@@ -152,7 +262,7 @@ using System.Collections;
                 }
                 _JsonFilesPath = files;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Debug.LogException(ex);
                 _JsonFilesPath = new string[] { };
@@ -171,7 +281,7 @@ using System.Collections;
          private void drawFrameInfo(HanoiNode n,float mouseX)
          {
              HanoiUtil.DrawFrameStatementRecursively(n);
-             HanoiUtil.DrawSelectedFrameInfoRecursively(n,mouseX);
+             HanoiUtil.DrawSelectedFrameInfoRecursively(n, mouseX);
          }
 
          /// <summary>
@@ -210,6 +320,9 @@ using System.Collections;
              GUI.color = Color.yellow;
              float timeInterval = getTimeInterval(HanoiUtil.ScreenClipMinX,HanoiUtil.ScreenClipMaxX);
 
+             if ((HanoiUtil.ScreenClipMaxX - HanoiUtil.ScreenClipMinX) / timeInterval > 200)
+                 return;
+
              timeInterval = Mathf.Max(timeInterval,0.001f);
              List<float> timeIntervalPosXList = new List<float>();
              float baseNum= (int)(HanoiUtil.ScreenClipMinX / timeInterval) * timeInterval;
@@ -231,16 +344,13 @@ using System.Collections;
          private float getTimeInterval(float x0, float x1) {
              float screenClipDelta = x1 - x0;
              if (screenClipDelta < 0.1)
-             {
                  return 0.01f;
-             }
 
-             float interval = 10000;
+             float interval = 10000000;
              while (screenClipDelta < interval * 3.0f)
              {
                  interval /= 10;
              }
-   
             return interval;
          }
 
@@ -270,6 +380,13 @@ using System.Collections;
              m_controlScreenHeight = m_winHeight - m_detailScreenHeight - m_navigationScreenHeight;
              m_controlScreenPosY = 0.0f;
 
+             GraphIt.GraphSetupHeight(HanoiData.GRAPH_TIMECONSUMING, m_navigationScreenHeight / 2 - GraphItWindow.y_gap);
+             GraphIt.GraphSetupHeight(HanoiData.GRAPH_TIME_PERCENT, m_navigationScreenHeight / 2 - GraphItWindow.y_gap);
+             GraphIt.ShareYAxis(HanoiData.GRAPH_TIMECONSUMING,true);
+             GraphIt.ShareYAxis(HanoiData.GRAPH_TIME_PERCENT,true);
+         }
+
+         private void calculateStackHeight() {
              HanoiVars.StackHeight = (m_data.MaxStackLevel != 0) ? (m_detailScreenHeight / m_data.MaxStackLevel) : m_detailScreenHeight;
          }
 
@@ -309,15 +426,36 @@ using System.Collections;
              get { return ViewToDrawingTransformPoint(Event.current.mousePosition);}
          }
 
+         public Vector2 mousePositionInDetailScreen
+         {
+             get { return mousePositionInDrawing - new Vector2(0, m_detailScreenPosY); }
+         }
+
          public float GetDrawingLengthByPanelPixels(int pixels)
          {
              return Mathf.Abs(ViewToDrawingTransformPoint(new Vector2(pixels, 0)).x - ViewToDrawingTransformPoint(new Vector2(0, 0)).x); 
+         }
+
+         /// <summary>
+         /// 将屏幕中心移动到给定的时间上
+         /// </summary>
+         public void setViewPointToGlobalTime(float globalTime,float interval,float mouseX) {
+             m_Scale.x = (m_winWidth - viewPointToGlobalTimeMarin*2) / interval;
+             float viewMidValue = Mathf.Abs(DrawingToViewTransformVector(new Vector2(globalTime, 0)).x);
+             targetTranslationX = (m_winWidth - viewPointToGlobalTimeMarin) - viewMidValue;
+
+             float delta = targetTranslationX - m_Translation.x;
+             targetTranslationInterval = Mathf.Abs(delta) / 30;
          }
 
          private void CheckForInput()
          {
              switch (Event.current.type)
              {
+                 case EventType.KeyUp:
+                     m_isTestCallLua = !m_isTestCallLua;
+                     EditorApplication.isPaused = false;
+                     break;
                  case EventType.MouseMove:
                      {
                          if (m_picked != null)
@@ -326,7 +464,7 @@ using System.Collections;
                              m_picked = null;
                          }
 
-                         HanoiNode picked = PickHanoiRecursively(m_data.Root.callStats, mousePositionInDrawing);
+                         HanoiNode picked = PickHanoiRecursively(m_data.Root.callStats, mousePositionInDetailScreen);
                          if (picked != null)
                          {
                              HanoiUtil.ForeachInParentChain(picked, (n) => { 
@@ -338,14 +476,19 @@ using System.Collections;
                          }
                          else
                          {
-                             Debug.LogFormat("Picked nothing.");
+                            // Debug.LogFormat("Picked nothing.");
                          }
 
-                         if (EditorWindow.focusedWindow == this) {
-                             if ((Event.current.mousePosition.x >= 0 && Event.current.mousePosition.x<= m_winWidth) &&
-                                 (Event.current.mousePosition.y >= m_detailScreenPosY &&Event.current.mousePosition.y <= m_winHeight))
+                         if (EditorWindow.focusedWindow == this)
+                         {
+                             if ((Event.current.mousePosition.x >= 0 && Event.current.mousePosition.x <= m_winWidth) &&
+                                 (Event.current.mousePosition.y >= m_detailScreenPosY && Event.current.mousePosition.y <= m_winHeight))
                              {
+                                 m_mouseArea = MouseInArea.DetailScreen;
                                  Repaint();
+                             }
+                             else {
+                                 m_mouseArea = MouseInArea.none;
                              }
                          }
                      }
@@ -353,8 +496,12 @@ using System.Collections;
                  case EventType.MouseDrag:
                      if (Event.current.button == 1)
                      {
-                         m_Translation.x += Event.current.delta.x;
-                         Repaint();
+                         if (m_mouseArea == MouseInArea.DetailScreen)
+                         {
+                             m_Translation.x += Event.current.delta.x;
+                             targetTranslationX = m_Translation.x;
+                             Repaint();
+                         }
                      }
                      break;
                  case EventType.ScrollWheel:
@@ -367,10 +514,10 @@ using System.Collections;
 
                          // Offset to make zoom centered around cursor position
                          m_Translation.x -= mousePositionInDrawing.x * (scale - 1) * m_Scale.x;
-                         
+                         targetTranslationX = m_Translation.x;
+                        
                          // Apply zooming
                          m_Scale.x *= scale;
-
                          Repaint();
                      }
                      break;
