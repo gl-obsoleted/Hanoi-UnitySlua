@@ -5,6 +5,8 @@ using System.IO;
 using System.Collections;
 using System.Security;
 using System.Text;
+using System;
+using System.Threading;
      public class VisualizerWindow : EditorWindow
      {
          public enum MouseInArea
@@ -54,6 +56,67 @@ using System.Text;
          int _selectedJsonFileIndex = -1;
          string[] _JsonFilesPath = new string[] { };
 
+         public class SessionJsonObj
+         {
+             public bool readerFlag = false;
+             public JSONObject m_jsonObj = null;
+
+             public JSONObject readJsonObj()
+             {
+                 if (!m_jsonObj)
+                     return null;
+                 lock (this)  
+                 {
+                     if (!readerFlag)
+                     {          
+                         try
+                         {
+                             Monitor.Wait(this);
+                         }
+                         catch (SynchronizationLockException e)
+                         {
+                             Console.WriteLine(e);
+                         }
+                         catch (ThreadInterruptedException e)
+                         {
+                             Console.WriteLine(e);
+                         }
+                     }
+                     readerFlag = false;   
+                     Monitor.Pulse(this);   
+                 }  
+                 return m_jsonObj;
+             }
+
+             public void writeJsonObj(JSONObject job)
+             {
+                 lock (this)  
+                 {
+                     if (readerFlag)
+                     {      
+                         try
+                         {
+                             Monitor.Wait(this);  
+                         }
+                         catch (SynchronizationLockException e)
+                         {
+                             Console.WriteLine(e);
+                         }
+                         catch (ThreadInterruptedException e)
+                         {
+                             Console.WriteLine(e);
+                         }
+                     }
+                     m_jsonObj = job;
+                     readerFlag = true;  
+                     Monitor.Pulse(this); 
+                 } 
+             }
+         }
+
+         static SessionJsonObj  sessionJsonObj  = new SessionJsonObj();
+
+         public delegate void OnHandleSessionJsonObj(JSONObject jsonContent);//定义委托
          [MenuItem("Window/"+UIDef.g_editorWindow)]
          static void Create()
          {
@@ -63,6 +126,17 @@ using System.Text;
                  m_window.wantsMouseMove = true;
                  m_window.CheckForResizing();
          }
+
+         public void string2JsonAsyn(object o)
+         {
+             var watch = new System.Diagnostics.Stopwatch();
+             watch.Start();
+             var result = new JSONObject(o.ToString());
+             watch.Stop();
+             //UnityEngine.Debug.LogFormat("str2json  time {0}", watch.ElapsedMilliseconds);
+             sessionJsonObj.writeJsonObj(result);
+         }
+
 
          void Update()
          {
@@ -79,32 +153,21 @@ using System.Text;
                     m_strBuilder.Append(",");
                  }
                  string templateJsonText = "[$$]";
-                 JSONObject jsonContent = new JSONObject(templateJsonText.Replace("$$", m_strBuilder.ToString()));
-
-                 Dictionary<string, List<DataInfo>> dataInfoMap = new Dictionary<string, List<DataInfo>>();
-                 dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, new List<DataInfo>());
-                 dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, new List<DataInfo>());
-                 dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE, new List<DataInfo>());
-                 dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, new List<DataInfo>());
-                 if (jsonContent != null && jsonContent.type == JSONObject.Type.ARRAY)
+                 //String2JsonAsyn string2Json = string2JsonAsyn;
+                 //string2Json.BeginInvoke(templateJsonText.Replace("$$", m_strBuilder.ToString()), handleSessionJsonObj, string2Json);
+                 if (sessionJsonObj.readerFlag)
                  {
-                     for (int i = 0; i < jsonContent.list.Count; i++)
+                     var job = sessionJsonObj.readJsonObj();
+                     if (job)
                      {
-                         JSONObject j = (JSONObject)jsonContent.list[i];
-                         m_data.handleMsgForDetailScreen(j);
-                         m_data.handleMsgForNavigationScreen(j,dataInfoMap);
+                         m_data.handleSessionJsonObj(job);
+                         Repaint();
                      }
-
-                     GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE]);
-                     GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE]);
-                     GraphIt2.StepGraph(HanoiData.GRAPH_TIMECONSUMING);
-                     GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE]);
-                     GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE]);
-                     GraphIt2.StepGraph(HanoiData.GRAPH_TIME_PERCENT);
-
-                     Repaint();
-                     sessionMsgList.Clear();
                  }
+
+                 Thread mThread = new Thread(new ParameterizedThreadStart(string2JsonAsyn));
+                 mThread.Start(templateJsonText.Replace("$$", m_strBuilder.ToString()));
+                 sessionMsgList.Clear();
              }
          }
 

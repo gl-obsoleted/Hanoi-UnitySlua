@@ -4,7 +4,6 @@ using System.Text;
 using System.IO;
 using System;
 using System.Collections.Generic;
-
 public enum eHanoiCallType
 {
     None,
@@ -116,27 +115,14 @@ public class HanoiData
         try
         {
             string text = System.IO.File.ReadAllText(filename);
-            //invaild json doc ,convert correct;
-            string templateJsonText = "{ \"content\":[$$],}";
-            m_json = new JSONObject(templateJsonText.Replace("$$", text));
-            if (m_json.IsNull)
-                throw new System.Exception("json load error");
-
             HanoiNode.s_count = 0;
 
             m_hanoiData = new HanoiRoot();
             m_hanoiData.callStats = new HanoiNode(null);
-            if (m_json.GetField("content")&& m_json.GetField("content").IsArray)
-            {
-                JSONObject jsonContent =m_json.GetField("content");
 
-                for (int i = 0; i < jsonContent.list.Count; i++)
-                {
-                    JSONObject j = (JSONObject)jsonContent.list[i];
-                    handleMsgForDetailScreen(j);
-                    //handleMsgForNavigationScreen(j);
-                }
-            }
+            //invaild json doc ,convert correct;
+            string templateJsonText = "[$$]";
+            handleSessionJsonObj(new JSONObject(templateJsonText.Replace("$$", text)));
 
             Debug.LogFormat("reading {0} objects.", HanoiNode.s_count);
         }
@@ -147,6 +133,50 @@ public class HanoiData
         }
         return true;
     }
+
+    public void handleSessionJsonObj(JSONObject jsonContent)
+    {
+        if (jsonContent == null || jsonContent.IsNull)
+            throw new System.Exception("json load error");
+        var watch1 = new System.Diagnostics.Stopwatch();
+        watch1.Start();
+        Dictionary<string, List<DataInfo>> dataInfoMap = new Dictionary<string, List<DataInfo>>();
+        dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, new List<DataInfo>());
+        dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, new List<DataInfo>());
+        dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE, new List<DataInfo>());
+        dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, new List<DataInfo>());
+        if (jsonContent.type == JSONObject.Type.ARRAY)
+        {
+            for (int i = 0; i < jsonContent.list.Count; i++)
+            {
+                JSONObject j = (JSONObject)jsonContent.list[i];
+                handleMsgForDetailScreen(j);
+            }
+            watch1.Stop();
+            //UnityEngine.Debug.LogFormat("resolve detail json {0}", watch1.ElapsedMilliseconds);
+
+            watch1.Reset();
+            watch1.Start();
+            for (int i = 0; i < jsonContent.list.Count; i++)
+            {
+                JSONObject j = (JSONObject)jsonContent.list[i];
+                handleMsgForNavigationScreen(j, dataInfoMap);
+            }
+            watch1.Stop();
+           // UnityEngine.Debug.LogFormat("resolve Navigation json {0}", watch1.ElapsedMilliseconds);
+
+            watch1.Reset();
+            watch1.Start();
+            GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE]);
+            GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE]);
+            GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE]);
+            GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE]);
+            watch1.Stop();
+            //UnityEngine.Debug.LogFormat("graphIt step time {0}", watch1.ElapsedMilliseconds);
+        }
+    }
+
+
 
     public void handleMsgForDetailScreen(JSONObject jsonMsg)
     {
@@ -370,7 +400,7 @@ public class HanoiData
             }
             else
             {
-                Debug.LogFormat("frameTime load error");
+                UnityEngine.Debug.LogFormat("frameTime load error");
             }
 
             loadObj = obj.GetField("frameUnityTime");

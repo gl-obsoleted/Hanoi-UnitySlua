@@ -10,8 +10,8 @@ public class GraphItWindow2 : EditorWindow
     static int mMouseOverGraphIndex = -1;
     static float mMouseX = 0;
 
-    public static string[] _TimeLimitStrOption = new string[] { "normal", "100ms", "50ms", "10ms", "5ms", "1ms" };
-    public static int[] _TimeLimitValue = new int[] { -1, 100, 50, 10, 5, 1 };
+    public static string[] _TimeLimitStrOption = new string[] {"1ms", "5ms", "10ms", "50ms", "100ms" };
+    public static int[] _TimeLimitValue = new int[] {1, 5, 10, 50, 100 };
     public static int _TimeLimitSelectIndex = 0;
 
     public static string[] _PercentLimitStrOption = new string[] { "100%", "20%", "5%" };
@@ -182,8 +182,7 @@ public class GraphItWindow2 : EditorWindow
 
                             float y_min = 0;
                             float y_max = kv.Value.GetMax(entry.Key);
-                            if (getDataHeightMaxLimit(kv.Value.mName) > 0)
-                                y_max = getDataHeightMaxLimit(kv.Value.mName);
+                            y_max = getDataHeightMaxLimit(kv.Value.mName);
 
                             float y_range = Mathf.Max(y_max - y_min, 0.00001f);
                             GL.Begin(GL.LINES);
@@ -196,7 +195,8 @@ public class GraphItWindow2 : EditorWindow
                             }
                             GL.End();
                             float previous_value = 0;
-                            for (int i = 0; i < kv.Value.GraphLength(); ++i)
+                            int len = kv.Value.GraphLength();
+                            for (int i = 0; i < len; ++i)
                             {
                                 float value = 0;
                                 if (i >= 1)
@@ -283,9 +283,9 @@ public class GraphItWindow2 : EditorWindow
                             NameLabel.normal.textColor = g.mColor;
                             EditorGUILayout.LabelField(entry.Key, NameLabel);
                         }
-                        EditorGUILayout.LabelField("Avg: " + g.mAvg.ToString(num_format) + " (" + g.mFastAvg.ToString(num_format) + ")", SmallLabel);
-                        EditorGUILayout.LabelField("Min: " + g.mMin.ToString(num_format), SmallLabel);
-                        EditorGUILayout.LabelField("Max: " + g.mMax.ToString(num_format), SmallLabel);
+                        EditorGUILayout.LabelField("Avg:" ,SmallLabel);
+                        EditorGUILayout.LabelField("Min: ", SmallLabel);
+                        EditorGUILayout.LabelField("Max: ", SmallLabel);
                     }
                     else
                     {
@@ -311,10 +311,7 @@ public class GraphItWindow2 : EditorWindow
                         height -= row_size;
                         if (height >= 0)
                         {
-                            EditorGUILayout.LabelField("Avg: " + g.mAvg.ToString(num_format) + " (" + g.mFastAvg.ToString(num_format) +
-                            ")  Min: " + g.mMin.ToString(num_format) +
-                            "  Max: " + g.mMax.ToString(num_format)
-                            , SmallLabel);
+                            EditorGUILayout.LabelField("-" ,SmallLabel);
                         }
                     }
                 }

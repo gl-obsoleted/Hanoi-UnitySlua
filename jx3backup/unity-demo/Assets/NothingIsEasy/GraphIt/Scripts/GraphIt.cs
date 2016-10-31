@@ -79,11 +79,8 @@ public class GraphItDataInternal2
     public GraphItDataInternal2( int subgraph_index )
     {
         mDataInfos = new List<DataInfo>();
-        mCounter = null;
         mMin = 0.0f;
         mMax = 0.0f;
-        mAvg = 0.0f;
-        mFastAvg = 0.0f;
 
         switch(subgraph_index)
         {
@@ -105,12 +102,8 @@ public class GraphItDataInternal2
         }
     }
     public List<DataInfo> mDataInfos;
-    public List<DataInfo> mCounter;
     public float mMin;
     public float mMax;
-    public float mAvg;
-    public float mFastAvg;
-
     public Color mColor;
 }
 
@@ -168,7 +161,7 @@ public class GraphItData2
 
     public int GraphLength()
     {
-        return mCurrentIndex;
+        return mCurrentIndex / mData.Count;
     }
 
     public float GetMin( string subgraph )
@@ -295,75 +288,6 @@ public class GraphIt2 : MonoBehaviour
                 gdi.mDataInfos.Clear();
             }
         }
-    }
-
-    void StepGraphInternal(GraphItData2 graph)
-    {
-        int stepCurrentIndex=0;
-#if UNITY_EDITOR
-        foreach (KeyValuePair<string, GraphItDataInternal2> entry in graph.mData)
-        {
-            GraphItDataInternal2 g = entry.Value;
-            foreach (var di in g.mCounter)
-            {
-                g.mDataInfos.Add(di);
-            }
-            stepCurrentIndex = g.mCounter.Count;
-        }
-
-        graph.mCurrentIndex = graph.mCurrentIndex + stepCurrentIndex;
-
-        foreach (KeyValuePair<string, GraphItDataInternal2> entry in graph.mData)
-        {
-            GraphItDataInternal2 g = entry.Value;
-
-            float sum = g.mDataInfos[0].GraphNum;
-            float min = g.mDataInfos[0].GraphNum;
-            float max = g.mDataInfos[0].GraphNum;
-            int len = graph.GraphLength();
-            //int startIndex;
-            //if(len > GraphItData2.RECENT_WINDOW_SIZE)
-            //{
-            //    startIndex = len - GraphItData2.RECENT_WINDOW_SIZE;
-            //}
-            //else
-            //{
-            //    startIndex = len;
-            //}
-            for (int i = 1; i < len; ++i)
-            {
-                sum += g.mDataInfos[i].GraphNum;
-                min = Mathf.Min(min, g.mDataInfos[i].GraphNum);
-                max = Mathf.Max(max, g.mDataInfos[i].GraphNum);
-            }
-            if (graph.mInclude0)
-            {
-                min = Mathf.Min(min, 0.0f);
-                max = Mathf.Max(max, 0.0f);
-            }
-
-            //Calculate the recent average
-            int recent_start = graph.mCurrentIndex - GraphItData2.RECENT_WINDOW_SIZE;
-            int recent_count = GraphItData2.RECENT_WINDOW_SIZE;
-            if (recent_start < 0)
-            {
-                recent_count = graph.GraphLength();
-                recent_start = 0;
-            }
-
-            float recent_sum = 0.0f;
-            for (int i = 0; i < recent_count; ++i)
-            {
-                recent_sum += g.mDataInfos[recent_start].GraphNum;
-                recent_start = (recent_start + 1) % g.mDataInfos.Count;
-            }
-
-            g.mMin = min;
-            g.mMax = max;
-            g.mAvg = sum / graph.GraphLength();
-            g.mFastAvg = recent_sum / recent_count;
-        }
-#endif
     }
 
     /// <summary>
@@ -503,7 +427,7 @@ public class GraphIt2 : MonoBehaviour
     /// <param name="graph"></param>
     /// <param name="subgraph"></param>
     /// <param name="f"></param>
-    public static void Log(string graph, string subgraph, List<DataInfo> di)
+    public static void Log(string graph, string subgraph, List<DataInfo> diList)
     {
 #if UNITY_EDITOR
         if (!Instance.Graphs.ContainsKey(graph))
@@ -516,55 +440,11 @@ public class GraphIt2 : MonoBehaviour
         {
             g.mData[subgraph] = new GraphItDataInternal2(g.mData.Count);
         }
-        g.mData[subgraph].mCounter =di;
-#endif
-    }
-    /// <summary>
-    /// StepGraph allows you to step this graph to the next frame manually. This is useful if you want to log multiple frames worth of data on a single frame.
-    /// </summary>
-    /// <param name="graph"></param>
-    public static void StepGraph(string graph)
-    {
-#if UNITY_EDITOR
-        if (!Instance.Graphs.ContainsKey(graph))
+        foreach (var di in diList)
         {
-            Instance.Graphs[graph] = new GraphItData2(graph);
+            g.mData[subgraph].mDataInfos.Add(di);
         }
-        Instance.StepGraphInternal(Instance.Graphs[graph]);
-#endif
-    }
-
-    /// <summary>
-    /// Allows you to manually pause a graph. The graph will unpause as soon as you Log new data to it, or call UnpauseGraph.
-    /// </summary>
-    /// <param name="graph"></param>
-    public static void PauseGraph(string graph)
-    {
-#if UNITY_EDITOR
-        if (!Instance.Graphs.ContainsKey(graph))
-        {
-            Instance.Graphs[graph] = new GraphItData2(graph);
-        }
-
-        GraphItData2 g = Instance.Graphs[graph];
-        g.mReadyForUpdate = false;
-#endif
-    }
-
-    /// <summary>
-    /// Allows you to manually unpause a graph. Graphs are paused initially until you Log data to them.
-    /// </summary>
-    /// <param name="graph"></param>
-    public static void UnpauseGraph(string graph)
-    {
-#if UNITY_EDITOR
-        if (!Instance.Graphs.ContainsKey(graph))
-        {
-            Instance.Graphs[graph] = new GraphItData2(graph);
-        }
-
-        GraphItData2 g = Instance.Graphs[graph];
-        g.mReadyForUpdate = true;
+        Instance.Graphs[graph].mCurrentIndex += diList.Count;
 #endif
     }
 
