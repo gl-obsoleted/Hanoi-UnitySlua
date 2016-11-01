@@ -69,7 +69,6 @@ public class Lua
     {
         string file = m_strPath + "/" + m_strTime + ".json";
         object o = m_LuaSvr.luaState.getFunction("profiler_start").call(file);
-        return;
 #if UNITY_EDITOR
         EditorWindow w = EditorWindow.GetWindow<EditorWindow>(g_editorWindow);
         if (w.GetType().Name == g_editorWindow)
