@@ -4,6 +4,7 @@ using System.Text;
 using System.IO;
 using System;
 using System.Collections.Generic;
+using UnityEditor;
 public enum eHanoiCallType
 {
     None,
@@ -19,6 +20,34 @@ public class HanoiRoot
     public float totalCalltimeConsuming = 0.0f;
     public float processTimeConsuming = 0.0f;
     public HanoiNode callStats;
+}
+public class ResovleSessionJsonResult
+{
+    private List<HanoiNode> m_detailResult;
+    private Dictionary<string, List<DataInfo>> m_navigateResult;
+    public ResovleSessionJsonResult()
+    {
+    }
+
+    public List<HanoiNode> DetailResult
+    {
+        get
+        {
+            return m_detailResult;
+        }
+
+        set { m_detailResult = value; }
+    }
+
+    public Dictionary<string, List<DataInfo>> NavigateResult
+    {
+        get
+        {
+            return m_navigateResult;
+        }
+
+        set { m_navigateResult = value; }
+    }
 }
 
 public class HanoiNode
@@ -40,9 +69,9 @@ public class HanoiNode
     public int lineDefined = HanoiConst.BAD_NUM;
 
     public eHanoiCallType callType = eHanoiCallType.None;
-    public double timeConsuming = 0.0;
-    public double beginTime = 0.0;
-    public double endTime = 0.0;
+    public float timeConsuming = 0.0f;
+    public float beginTime = 0.0f;
+    public float endTime = 0.0f;
 
     public HanoiNode Parent;
     public List<HanoiNode> Children = new List<HanoiNode>();
@@ -74,6 +103,11 @@ public class HanoiFrameInfo : HanoiNode
     public float frameTime = 0.0f;
     public float frameUnityTime = 0.0f;
     public float frameEndTime = 0.0f;
+    public float frameLuaTime = 0.0f;
+    public float frameFunTime = 0.0f;
+    public float luaTime = 0.0f;
+    public float funTime = 0.0f;
+    
     public HanoiFrameInfo(HanoiNode parent)
         : base(parent)
     {
@@ -108,6 +142,7 @@ public class HanoiData
     public static string SUBGRAPH_LUA_PERCENT_EXCLUSIVE = "luaTimePercentExclusive";
     public static string SUBGRAPH_LUA_PERCENT_INCLUSIVE = "luaTimePercentInclusive";
 
+
     public bool Load(string filename)
     {
         m_hanoiData = null;
@@ -122,24 +157,35 @@ public class HanoiData
 
             //invaild json doc ,convert correct;
             string templateJsonText = "[$$]";
-            handleSessionJsonObj(new JSONObject(templateJsonText.Replace("$$", text)));
-
+            var resovleSessionJsonResult = handleSessionJsonObj(new JSONObject(templateJsonText.Replace("$$", text)));
+            if (resovleSessionJsonResult != null)
+            {
+                m_hanoiData.callStats.Children.AddRange(resovleSessionJsonResult.DetailResult);
+                var dataInfoMap = resovleSessionJsonResult.NavigateResult;
+                GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE]);
+                GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE]);
+                GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE]);
+                GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE]);
+                
+            }
             Debug.LogFormat("reading {0} objects.", HanoiNode.s_count);
         }
         catch (Exception e)
         {
+            EditorUtility.DisplayDialog("错误", "加载json文件出错", "确认", "取消");
             Debug.LogException(e);
             return false;
         }
         return true;
     }
 
-    public void handleSessionJsonObj(JSONObject jsonContent)
+    public ResovleSessionJsonResult handleSessionJsonObj(JSONObject jsonContent)
     {
         if (jsonContent == null || jsonContent.IsNull)
             throw new System.Exception("json load error");
         var watch1 = new System.Diagnostics.Stopwatch();
         watch1.Start();
+        ResovleSessionJsonResult result = new ResovleSessionJsonResult();
         Dictionary<string, List<DataInfo>> dataInfoMap = new Dictionary<string, List<DataInfo>>();
         dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, new List<DataInfo>());
         dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, new List<DataInfo>());
@@ -147,14 +193,6 @@ public class HanoiData
         dataInfoMap.Add(HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, new List<DataInfo>());
         if (jsonContent.type == JSONObject.Type.ARRAY)
         {
-            for (int i = 0; i < jsonContent.list.Count; i++)
-            {
-                JSONObject j = (JSONObject)jsonContent.list[i];
-                handleMsgForDetailScreen(j);
-            }
-            watch1.Stop();
-            //UnityEngine.Debug.LogFormat("resolve detail json {0}", watch1.ElapsedMilliseconds);
-
             watch1.Reset();
             watch1.Start();
             for (int i = 0; i < jsonContent.list.Count; i++)
@@ -162,23 +200,30 @@ public class HanoiData
                 JSONObject j = (JSONObject)jsonContent.list[i];
                 handleMsgForNavigationScreen(j, dataInfoMap);
             }
+            result.NavigateResult = dataInfoMap;
             watch1.Stop();
            // UnityEngine.Debug.LogFormat("resolve Navigation json {0}", watch1.ElapsedMilliseconds);
 
             watch1.Reset();
             watch1.Start();
-            GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE]);
-            GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE]);
-            GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE]);
-            GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE]);
+            List<HanoiNode> resultNodeRoot = new List<HanoiNode>();
+
+            for (int i = 0; i < jsonContent.list.Count; i++)
+            {
+                JSONObject j = (JSONObject)jsonContent.list[i];
+                handleMsgForDetailScreen(j,resultNodeRoot);
+            }
             watch1.Stop();
-            //UnityEngine.Debug.LogFormat("graphIt step time {0}", watch1.ElapsedMilliseconds);
+            //UnityEngine.Debug.LogFormat("resolve detail json {0}", watch1.ElapsedMilliseconds);
+            result.DetailResult =resultNodeRoot;
+            return result;
         }
+        return null;
     }
 
 
 
-    public void handleMsgForDetailScreen(JSONObject jsonMsg)
+    public void handleMsgForDetailScreen(JSONObject jsonMsg, List<HanoiNode> resultNodeRoot)
     {
         if (jsonMsg == null)
             return;
@@ -202,7 +247,7 @@ public class HanoiData
         }
         if (readObject(jsonMsg, newNode))
         {
-            Root.callStats.Children.Add(newNode);
+            resultNodeRoot.Add(newNode);
         }
     }
 
@@ -244,299 +289,155 @@ public class HanoiData
             return;
         }
 
-        dataInfoMap[SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE].Add(new DataInfo((float)funConsuming.n, frameTime.f, (float)frameInterval.n, (int)frameID.n));
-        dataInfoMap[SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE].Add(new DataInfo((float)luaConsuming.n, frameTime.f, (float)frameInterval.n, (int)frameID.n));
-        dataInfoMap[SUBGRAPH_LUA_PERCENT_INCLUSIVE].Add(new DataInfo((float)(funConsuming.n / frameInterval.n * 100.0f), frameTime.f, (float)frameInterval.n, (int)frameID.n));
-        dataInfoMap[SUBGRAPH_LUA_PERCENT_EXCLUSIVE].Add(new DataInfo((float)(luaConsuming.n / frameInterval.n) * 100.0f, frameTime.f, (float)frameInterval.n, (int)frameID.n));
-
-        //GraphIt2.Log(GRAPH_TIMECONSUMING, SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, new DataInfo((float)funConsuming.n, frameTime.f, (float)frameInterval.n, (int)frameID.n));
-        //GraphIt2.Log(GRAPH_TIMECONSUMING, SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, new DataInfo((float)luaConsuming.n, frameTime.f, (float)frameInterval.n, (int)frameID.n));
-        //GraphIt2.StepGraph(GRAPH_TIMECONSUMING);
-        //GraphIt2.PauseGraph(GRAPH_TIMECONSUMING);
-        //GraphIt2.Log(GRAPH_TIME_PERCENT, SUBGRAPH_LUA_PERCENT_INCLUSIVE, new DataInfo((float)(funConsuming.n / frameInterval.n * 100.0f), frameTime.f, (float)frameInterval.n, (int)frameID.n));
-        //GraphIt2.Log(GRAPH_TIME_PERCENT, SUBGRAPH_LUA_PERCENT_EXCLUSIVE, new DataInfo((float)(luaConsuming.n / frameInterval.n) * 100.0f, frameTime.f, (float)frameInterval.n, (int)frameID.n));
-        //GraphIt2.StepGraph(GRAPH_TIME_PERCENT);
-        //GraphIt2.PauseGraph(GRAPH_TIME_PERCENT);
+        int frame = (int)frameID.n - 1;
+        Mathf.Max(frame,0);
+        dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE].Add(new DataInfo((float)funConsuming.n, frameTime.f, (float)frameInterval.n, frame));
+        dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE].Add(new DataInfo((float)luaConsuming.n, frameTime.f, (float)frameInterval.n, frame));
+        dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE].Add(new DataInfo((float)(funConsuming.n / frameInterval.n * 100.0f), frameTime.f, (float)frameInterval.n, frame));
+        dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE].Add(new DataInfo((float)(luaConsuming.n / frameInterval.n) * 100.0f, frameTime.f, (float)frameInterval.n, frame));
     }
-
-
-    //public bool readObject(JSONObject obj, HanoiNode node)
-    //{
-    //    if (obj.type != JSONObject.Type.OBJECT)
-    //        return false;
-    //    if (node is HanoiFrameInfo)
-    //    {
-    //        HanoiFrameInfo frameNode = (HanoiFrameInfo)node;
-    //        for (int i = 0; i < obj.keys.Count; i++)
-    //        {
-    //            JSONObject val = obj.list[i];
-    //            switch (obj.keys[i])
-    //            {
-    //                case "frameTime":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        frameNode.frameTime = val.f;
-    //                    }
-    //                    break;
-    //                case "frameUnityTime":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        frameNode.frameUnityTime = val.f;
-    //                    }
-    //                    break;
-    //                case "frameID":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        frameNode.frameID = (int)val.n;
-    //                    }
-    //                    break;
-    //                default:
-    //                    //Debug.LogFormat("unknown field: {0}", obj.keys[i]);
-    //                    break;
-    //            }
-    //        }
-    //    }
-    //    else
-    //    {
-    //        for (int i = 0; i < obj.keys.Count; i++)
-    //        {
-    //            JSONObject val = obj.list[i];
-    //            switch (obj.keys[i])
-    //            {
-    //                case "currentLine":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        node.currentLine = (int)val.n;
-    //                    }
-    //                    break;
-    //                case "lineDefined":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        node.lineDefined = (int)val.n;
-    //                    }
-    //                    break;
-    //                case "timeConsuming":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        node.timeConsuming = val.n;
-    //                    }
-    //                    break;
-    //                case "stackLevel":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        node.stackLevel = (int)val.n;
-    //                        if (node.stackLevel > m_maxStackLevel)
-    //                        {
-    //                            m_maxStackLevel = node.stackLevel;
-    //                        }
-    //                    }
-    //                    break;
-    //                case "callType":
-    //                    if (val.IsString)
-    //                    {
-    //                        string type = val.str;
-    //                        if (type.Equals("C"))
-    //                            node.callType = eHanoiCallType.C;
-    //                        if (type.Equals("Lua"))
-    //                            node.callType = eHanoiCallType.Lua;
-    //                    }
-    //                    break;
-    //                case "begintime":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        node.beginTime = val.n;
-    //                    }
-    //                    break;
-    //                case "endtime":
-    //                    if (val.IsNumber)
-    //                    {
-    //                        node.endTime = val.n;
-    //                    }
-    //                    break;
-    //                case "moduleName":
-    //                    if (val.IsString)
-    //                    {
-    //                        node.moduleName = val.str;
-    //                    }
-    //                    break;
-    //                case "funcName":
-    //                    if (val.IsString)
-    //                    {
-    //                        node.funcName = val.str;
-    //                    }
-    //                    break;
-    //                case "children":
-    //                    foreach (JSONObject childJson in val.list)
-    //                    {
-    //                        HanoiNode child = new HanoiNode(node);
-    //                        if (readObject(childJson, child))
-    //                        {
-    //                            node.Children.Add(child);
-    //                        }
-    //                    }
-    //                    break;
-    //                default:
-    //                    //Debug.LogFormat("unknown field: {0}", obj.keys[i]);
-    //                    break;
-    //            }
-    //        }
-    //    }
-    //    return true;
-    //}
 
 
     public bool readObject(JSONObject obj, HanoiNode node)
     {
         if (obj.type != JSONObject.Type.OBJECT)
             return false;
-        JSONObject loadObj = null;
         if (node is HanoiFrameInfo)
         {
             HanoiFrameInfo frameNode = (HanoiFrameInfo)node;
-            loadObj = obj.GetField("frameTime");
-            if (loadObj && loadObj.IsNumber)
+            for (int i = 0; i < obj.keys.Count; i++)
             {
-                frameNode.frameTime = obj.GetField("frameTime").f;
-            }
-            else
-            {
-                UnityEngine.Debug.LogFormat("frameTime load error");
-            }
-
-            loadObj = obj.GetField("frameUnityTime");
-            if (loadObj && loadObj.IsNumber)
-            {
-                frameNode.frameUnityTime = obj.GetField("frameUnityTime").f;
-            }
-            else
-            {
-                Debug.LogFormat("frameUnityTime load error");
-            }
-
-            loadObj = obj.GetField("frameID");
-            if (loadObj && loadObj.IsNumber)
-            {
-                frameNode.frameID = (int)obj.GetField("frameID").n;
-            }
-            else
-            {
-                Debug.LogFormat("frameID load error");
+                JSONObject val = obj.list[i];
+                switch (obj.keys[i])
+                {
+                    case "frameTime":
+                        if (val.IsNumber)
+                        {
+                            frameNode.frameTime = val.f;
+                        }
+                        break;
+                    case "frameUnityTime":
+                        if (val.IsNumber)
+                        {
+                            frameNode.frameUnityTime = val.f;
+                        }
+                        break;
+                    case "frameID":
+                        if (val.IsNumber)
+                        {
+                            frameNode.frameID = (int)val.n;
+                        }
+                        break;
+                    case "luaConsuming":
+                        if (val.IsNumber)
+                        {
+                            frameNode.luaTime =val.f;
+                        }
+                        break;
+                    case "funConsuming":
+                        if (val.IsNumber)
+                        {
+                            frameNode.funTime = val.f;
+                        }
+                        break;
+                    default:
+                       // Debug.LogFormat("unknown field: {0}", obj.keys[i]);
+                        break;
+                }
             }
         }
         else
         {
-            loadObj = obj.GetField("currentLine");
-            if (loadObj && loadObj.IsNumber)
+            for (int i = 0; i < obj.keys.Count; i++)
             {
-                node.currentLine = (int)obj.GetField("currentLine").n;
-            }
-            else
-            {
-                Debug.LogFormat("currentLine load error");
-            }
-
-            loadObj = obj.GetField("lineDefined");
-            if (loadObj && loadObj.IsNumber)
-            {
-                node.lineDefined = (int)obj.GetField("lineDefined").n;
-            }
-            else
-            {
-                Debug.LogFormat("lineDefined load error");
-            }
-
-            loadObj = obj.GetField("timeConsuming");
-            if (loadObj && loadObj.IsNumber)
-            {
-                node.timeConsuming = obj.GetField("timeConsuming").n;
-            }
-            else
-            {
-                Debug.LogFormat("timeConsuming load error");
-            }
-
-            loadObj = obj.GetField("stackLevel");
-            if (loadObj && loadObj.IsNumber)
-            {
-                node.stackLevel = (int)obj.GetField("stackLevel").n;
-                if (node.stackLevel > m_maxStackLevel)
+                JSONObject val = obj.list[i];
+                switch (obj.keys[i])
                 {
-                    m_maxStackLevel = node.stackLevel;
-                }
-            }
-            else
-            {
-                Debug.LogFormat("stackLevel load error");
-            }
-
-            loadObj = obj.GetField("callType");
-            if (loadObj && loadObj.IsString)
-            {
-                switch (obj.GetField("callType").str)
-                {
-                    case "C":
-                        node.callType = eHanoiCallType.C;
+                    case "currentLine":
+                        if (val.IsNumber)
+                        {
+                            node.currentLine = (int)val.n;
+                        }
                         break;
-                    case "Lua":
-                        node.callType = eHanoiCallType.Lua;
+                    case "lineDefined":
+                        if (val.IsNumber)
+                        {
+                            node.lineDefined = (int)val.n;
+                        }
                         break;
-                }
-            }
-            else
-            {
-                Debug.LogFormat("callType load error");
-            }
-
-            loadObj = obj.GetField("begintime");
-            if (loadObj && loadObj.IsNumber)
-            {
-                node.beginTime = obj.GetField("begintime").n;
-            }
-            else
-            {
-                Debug.LogFormat("beginTime load error");
-            }
-
-            loadObj = obj.GetField("endtime");
-            if (loadObj && loadObj.IsNumber)
-            {
-                node.endTime = obj.GetField("endtime").n;
-            }
-            else
-            {
-                Debug.LogFormat("endTime load error");
-            }
-
-            loadObj = obj.GetField("moduleName");
-            if (loadObj && loadObj.IsString)
-            {
-                node.moduleName = obj.GetField("moduleName").str;
-            }
-            else
-            {
-                Debug.LogFormat("moduleName load error");
-            }
-
-            loadObj = obj.GetField("funcName");
-            if (loadObj && loadObj.IsString)
-            {
-                node.funcName = obj.GetField("funcName").str;
-            }
-            else
-            {
-                Debug.LogFormat("funcName load error");
-            }
-
-            foreach (JSONObject childJson in obj.GetField("children").list)
-            {
-                HanoiNode child = new HanoiNode(node);
-                if (readObject(childJson, child))
-                {
-                    node.Children.Add(child);
+                    case "timeConsuming":
+                        if (val.IsNumber)
+                        {
+                            if (val.f < 0.002f)
+                            {
+                                node.timeConsuming = 0.0f;
+                            }
+                            else
+                            {
+                                node.timeConsuming = val.f;
+                            }
+                        }
+                        break;
+                    case "stackLevel":
+                        if (val.IsNumber)
+                        {
+                            node.stackLevel = (int)val.n;
+                            if (node.stackLevel > m_maxStackLevel)
+                            {
+                                m_maxStackLevel = node.stackLevel;
+                            }
+                        }
+                        break;
+                    case "callType":
+                        if (val.IsString)
+                        {
+                            string type = val.str;
+                            if (type.Equals("C"))
+                                node.callType = eHanoiCallType.C;
+                            if (type.Equals("Lua"))
+                                node.callType = eHanoiCallType.Lua;
+                        }
+                        break;
+                    case "begintime":
+                        if (val.IsNumber)
+                        {
+                            node.beginTime = val.f;
+                        }
+                        break;
+                    case "endtime":
+                        if (val.IsNumber)
+                        {
+                            node.endTime = val.f;
+                        }
+                        break;
+                    case "moduleName":
+                        if (val.IsString)
+                        {
+                            node.moduleName = val.str;
+                        }
+                        break;
+                    case "funcName":
+                        if (val.IsString)
+                        {
+                            node.funcName = val.str;
+                        }
+                        break;
+                    case "children":
+                        foreach (JSONObject childJson in val.list)
+                        {
+                            HanoiNode child = new HanoiNode(node);
+                            if (readObject(childJson, child))
+                            {
+                                node.Children.Add(child);
+                            }
+                        }
+                        break;
+                    default:
+                       // Debug.LogFormat("unknown field: {0}", obj.keys[i]);
+                        break;
                 }
             }
         }
         return true;
     }
-
 }

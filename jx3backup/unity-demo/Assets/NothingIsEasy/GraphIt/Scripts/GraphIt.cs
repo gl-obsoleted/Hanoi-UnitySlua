@@ -7,6 +7,8 @@ public class  DataInfo{
     private float m_graphNum;
     private float m_frameTime;
     private float m_frameInterval;
+    private float m_luaConsuming;
+    private float m_funConsuming;
     private int m_frameID;
     public DataInfo(float graphNum)
     {
@@ -31,6 +33,26 @@ public class  DataInfo{
         m_frameTime = frameTime;
         m_frameInterval = frameInterval;
         m_frameID = frameID;
+    }
+
+    public float FunConsuming
+    {
+        get
+        {
+            return m_funConsuming;
+        }
+
+        set { m_funConsuming = value; }
+    }
+
+    public float LuaConsuming
+    {
+        get
+        {
+            return m_luaConsuming;
+        }
+
+        set { m_luaConsuming = value; }
     }
 
     public float GraphNum

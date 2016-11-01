@@ -19,7 +19,7 @@ public class GraphItWindow2 : EditorWindow
     public static int _PercentLimitSelectIndex = 0;
 
     static float x_offset = 5.0f;
-    static float XStep = 3;
+    static float XStep = 4;
     public static float y_gap = 15.0f;
     static float y_offset = 0;
     static int precision_slider = 3;
@@ -32,8 +32,8 @@ public class GraphItWindow2 : EditorWindow
     static Material mLineMaterial;
     static Material mRectMaterial;
 
-    public static float mouseXOnLeftBtn = 0;
-
+    public static float MouseXOnLeftBtn = 0;
+    public static int   FrameIDOnLeftBtn = 0;
     static void InitializeStyles()
     {
         if (NameLabel == null)
@@ -80,13 +80,13 @@ public class GraphItWindow2 : EditorWindow
 
         GL.End();
 
-        if (EditorApplication.isPaused && mouseXOnLeftBtn > 0)
+        if (EditorApplication.isPaused && MouseXOnLeftBtn > 0)
         {
             Rect r2 = new Rect();
-            r2.position = new Vector2(mouseXOnLeftBtn - XStep / 2, 0);
+            r2.position = new Vector2(MouseXOnLeftBtn - XStep / 2, 0);
             r2.width = XStep + x_offset;
             r2.height = height * 2 + y_gap;
-            Color bg = Color.yellow;
+            Color bg = Color.white;
             bg.a = 0.2f;
             Handles.DrawSolidRectangleWithOutline(r2, bg, bg);
         }
@@ -146,6 +146,12 @@ public class GraphItWindow2 : EditorWindow
     {
         if (GraphIt2.Instance)
         {
+
+            string num_format = "###,###,###,##0.";
+            for (int i = 0; i < precision_slider; i++)
+            {
+                num_format += "#";
+            }
             InitializeStyles();
             CreateLineMaterial();
 
@@ -176,6 +182,7 @@ public class GraphItWindow2 : EditorWindow
                     DrawGraphGridLines(scrolled_y_pos, mWidth, height, graph_index == mMouseOverGraphIndex);
                     if (kv.Value.GraphLength() > 0)
                     {
+                        bool isShowLeftPosTips = true;
                         foreach (KeyValuePair<string, GraphItDataInternal2> entry in kv.Value.mData)
                         {
                             GraphItDataInternal2 g = entry.Value;
@@ -210,9 +217,48 @@ public class GraphItWindow2 : EditorWindow
                                     float x1 = x_offset + i * XStep + scrolled_x_pos;
                                     float y1 = scrolled_y_pos + height * (1 - (value - y_min) / y_range);
                                     DrawDataRect(x0, y0, x1, y1, scrolled_y_pos + height, g.mColor);
+
+                                    if (EditorApplication.isPaused && MouseXOnLeftBtn > 0 && g.mDataInfos[i].FrameID == FrameIDOnLeftBtn)
+                                    {
+                                        Rect r = new Rect();
+                                        r.position = new Vector2(x0 +10, 0);
+                                        r.width = 35;
+                                        r.height = 15;
+                                        Color bg2 = Color.white;
+                                        bg2.a = 0.2f;
+                                        Handles.DrawSolidRectangleWithOutline(r, bg2, bg2);
+                                        GUI.Label(r, FrameIDOnLeftBtn.ToString(), HoverText);
+
+                                        Rect r2 = new Rect();
+                                        y1 -= 20;
+                                        y1=Mathf.Max(y1, 0);
+                                        if (isShowLeftPosTips)
+                                            x0 -= 60;
+                                        else
+                                            x0 += 10;
+                                        r2.position = new Vector2(x0,y1);
+                                        r2.width = 60;
+                                        r2.height = 15;
+                                        Color bg = g.mColor;
+                                        bg.a = 0.5f;
+                                        Handles.DrawSolidRectangleWithOutline(r2, bg, bg);
+                                        string afterFix=null;
+                                        if (kv.Key.Equals(HanoiData.GRAPH_TIMECONSUMING))
+                                        {
+                                            afterFix = "ms";
+                                        }
+                                        else
+                                        {
+                                            afterFix = "%";
+                                        }
+                                        string text = value.ToString(num_format) + afterFix;
+                                        HoverText.normal.textColor = Color.black;
+                                        GUI.Label(r2, text, HoverText);
+                                    }
                                 }
                                 previous_value = value;
                             }
+                            isShowLeftPosTips = !isShowLeftPosTips;
                         }
                     }
                     scrolled_y_pos += (height + y_gap);
@@ -258,12 +304,6 @@ public class GraphItWindow2 : EditorWindow
                     text_block_size = row_size * 3;
                 }
                 bool show_full_text = (kv.Value.mData.Count * text_block_size + row_size) < height;
-
-                string num_format = "###,###,###,##0.";
-                for (int i = 0; i < precision_slider; i++)
-                {
-                    num_format += "#";
-                }
 
                 string fu_str = " " + (kv.Value.mFixedUpdate ? "(FixedUpdate)" : "");
                 //skip subgraph title if only one, and it's the same.
@@ -324,7 +364,7 @@ public class GraphItWindow2 : EditorWindow
                         if (Event.current.button == 1)
                         {
                             mScrollPos.x += Event.current.delta.x;
-                            mouseXOnLeftBtn = -1;
+                            MouseXOnLeftBtn = -1;
                         }
                         window.Repaint();
                     }
@@ -336,8 +376,7 @@ public class GraphItWindow2 : EditorWindow
                     {
                         mMouseOverGraphIndex = graph_index;
                         mMouseX = Event.current.mousePosition.x;
-                        float offsetMouseX = mMouseX - x_offset + XStep;
-                        float hover_y_offset = 0;
+                        float offsetMouseX = mMouseX - x_offset;
                         if (kv.Value.GraphLength() > 0)
                         {
                             foreach (KeyValuePair<string, GraphItDataInternal2> entry in kv.Value.mData)
@@ -351,21 +390,19 @@ public class GraphItWindow2 : EditorWindow
                                         float value = g.mDataInfos[i - 1].GraphNum;
                                         float frameID = g.mDataInfos[i - 1].FrameID;
                                         float x0 = x_offset + (i - 1) * XStep + scrolled_x_pos;
-                                        float x1 = x_offset + i * XStep + scrolled_x_pos;
+                                        float x1 = x_offset + i * XStep + scrolled_x_pos ;
                                         if (x0 < offsetMouseX && offsetMouseX <= x1)
                                         {
-                                            Vector2 position = Event.current.mousePosition + new Vector2(10, -10 + hover_y_offset);
-                                            Vector2 size = new Vector2(110, 15);
+                                            Vector2 position = Event.current.mousePosition + new Vector2(10, -10);
+                                            Vector2 size = new Vector2(50, 15);
                                             Rect back = new Rect(position, size);
                                             Color bg = Color.grey;
                                             Handles.DrawSolidRectangleWithOutline(back, bg, bg);
 
                                             string text = value.ToString(num_format);
                                             Rect tooltip_r = new Rect(position, size);
-                                            HoverText.normal.textColor = g.mColor;
-                                            GUI.Label(tooltip_r, text + "||" + frameID, HoverText);
-
-                                            hover_y_offset += 13;
+                                            HoverText.normal.textColor = Color.white;
+                                            GUI.Label(tooltip_r,frameID +"帧", HoverText);
                                             break;
                                         }
                                     }
@@ -383,7 +420,7 @@ public class GraphItWindow2 : EditorWindow
                     {
                         mMouseOverGraphIndex = graph_index;
                         mMouseX = Event.current.mousePosition.x;
-                        float offsetMouseX = mMouseX - x_offset + XStep;
+                        float offsetMouseX = mMouseX - x_offset ;
                         if (kv.Value.GraphLength() > 0)
                         {
                             foreach (KeyValuePair<string, GraphItDataInternal2> entry in kv.Value.mData)
@@ -394,15 +431,16 @@ public class GraphItWindow2 : EditorWindow
                                 {
                                     if (i >= 1)
                                     {
-                                        float value = g.mDataInfos[i - 1].FrameTime;
+                                        float value = g.mDataInfos[i-1].FrameTime;
                                         float interval = g.mDataInfos[i - 1].FrameInterval;
-
+                                        int frameID = g.mDataInfos[i - 1].FrameID;
                                         float x0 = x_offset + (i - 1) * XStep + scrolled_x_pos;
                                         float x1 = x_offset + i * XStep + scrolled_x_pos;
 
                                         if (x0 < offsetMouseX && offsetMouseX <= x1)
                                         {
-                                            mouseXOnLeftBtn = x0;
+                                            MouseXOnLeftBtn = x0;
+                                            FrameIDOnLeftBtn = frameID;
                                             VisualizerWindow myWindow = (VisualizerWindow)EditorWindow.GetWindow(typeof(VisualizerWindow));
                                             myWindow.setViewPointToGlobalTime(value, interval, mMouseX);
                                             myWindow.m_isTestCallLua = false;
@@ -420,7 +458,7 @@ public class GraphItWindow2 : EditorWindow
                 mScrollPos = EditorGUILayout.BeginScrollView(mScrollPos, GUILayout.Width(mWidth), GUILayout.Height(height + y_gap));
                 if (preScrollPosX != mScrollPos.x)
                 {
-                    mouseXOnLeftBtn = -1;
+                    MouseXOnLeftBtn = -1;
                 }
                 GUILayout.Label("", GUILayout.Width(width), GUILayout.Height(0));
                 EditorGUILayout.EndScrollView();

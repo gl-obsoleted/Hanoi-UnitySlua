@@ -12,6 +12,8 @@ using UnityEditor;
 [SLua.CustomLuaClass]
 public class Lua
 {
+    public delegate void OnLuaMessage(string data);
+    private OnLuaMessage _onluaMessage = null;
     private static Lua ms_Instance = null;
     private static int preTimeCount = 0;
     public static Lua Instance
@@ -36,6 +38,20 @@ public class Lua
         {
             return luaState.handle;
         }
+    }
+
+    public static void OnMessage(string data)
+    {
+        if(Lua.Instance._onluaMessage != null)
+        {
+            Lua.Instance._onluaMessage(data);
+        }
+        //Debug.Log(msg);
+    }
+
+    public void SetLuaCallback()
+    {
+        LuaDLL.register_callback(OnMessage);
     }
 
 
@@ -170,15 +186,20 @@ public class Lua
         }
 #endif
     }
-
+    
     public bool IsRegisterLuaProfilerCallback()
     {
         return LuaDLL.isregister_callback();
     }
 
-    public void RegisterLuaProfilerCallback(LuaProfilerCallback callback)
+    public void RegisterLuaProfilerCallback(OnLuaMessage callback)
     {
-        LuaDLL.register_callback(callback);
+        //LuaDLL.register_callback(callback);
+        if (callback != null)
+            _onluaMessage = callback;
+        else
+            Debug.LogError("callback can't null");
+        SetLuaCallback();
     }
 
     public void RegisterLuaProfilerCallback2(string obj, string method)
@@ -188,22 +209,16 @@ public class Lua
 
     public void UnRegisterLuaProfilerCallback()
     {
+        _onluaMessage = null;
         LuaDLL.unregister_callback();
     }
+    
 
     public void SetFrameInfo()
     {
-        if (preTimeCount == 0)
-        {
-        }
-        else { 
-             if(Time.frameCount <preTimeCount)
-             {
-                 int x = 1;
-             }
-        }
-        preTimeCount = Time.frameCount;
-        LuaDLL.frame_profiler(Time.frameCount, System.DateTime.Now.Millisecond);
+        int frameCount = Time.frameCount;
+        preTimeCount = frameCount;
+        LuaDLL.frame_profiler(frameCount, System.DateTime.Now.Millisecond);
     }
 
     public LuaFunction GetFunction(string fn)

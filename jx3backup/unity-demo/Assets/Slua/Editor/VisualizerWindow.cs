@@ -28,7 +28,7 @@ using System.Threading;
 
          float targetTranslationX = 0;
          float targetTranslationInterval = 0;
-         float viewPointToGlobalTimeMarin = 10; 
+         float viewPointToGlobalTimeMarin = 10;
 
          public static float m_winWidth = 0.0f;
          public static float m_winHeight = 0.0f;
@@ -59,11 +59,10 @@ using System.Threading;
          public class SessionJsonObj
          {
              public bool readerFlag = false;
-             public JSONObject m_jsonObj = null;
-
-             public JSONObject readJsonObj()
+             public ResovleSessionJsonResult m_resovleSessionResult;
+             public ResovleSessionJsonResult readResovleJsonResult()
              {
-                 if (!m_jsonObj)
+                 if (m_resovleSessionResult == null)
                      return null;
                  lock (this)  
                  {
@@ -84,11 +83,11 @@ using System.Threading;
                      }
                      readerFlag = false;   
                      Monitor.Pulse(this);   
-                 }  
-                 return m_jsonObj;
+                 }
+                 return m_resovleSessionResult;
              }
 
-             public void writeJsonObj(JSONObject job)
+             public void writeResovleJsonResult(ResovleSessionJsonResult resovleJsonResult)
              {
                  lock (this)  
                  {
@@ -107,7 +106,7 @@ using System.Threading;
                              Console.WriteLine(e);
                          }
                      }
-                     m_jsonObj = job;
+                     m_resovleSessionResult = resovleJsonResult;
                      readerFlag = true;  
                      Monitor.Pulse(this); 
                  } 
@@ -127,14 +126,23 @@ using System.Threading;
                  m_window.CheckForResizing();
          }
 
-         public void string2JsonAsyn(object o)
+         public void handleMsgAsyn(object o)
          {
-             var watch = new System.Diagnostics.Stopwatch();
-             watch.Start();
-             var result = new JSONObject(o.ToString());
-             watch.Stop();
-             //UnityEngine.Debug.LogFormat("str2json  time {0}", watch.ElapsedMilliseconds);
-             sessionJsonObj.writeJsonObj(result);
+             //var watch = new System.Diagnostics.Stopwatch();
+             //watch.Start();
+
+             StringBuilder strBuilder = new StringBuilder("");
+             foreach (string msg in (string[])o)
+             {
+                 strBuilder.Append(msg);
+                 strBuilder.Append(",");
+             }
+             var result = new JSONObject("[$$]".Replace("$$",strBuilder.ToString()));
+             var resovleJsonResult =m_data.handleSessionJsonObj(result);
+             if (resovleJsonResult != null)
+                 sessionJsonObj.writeResovleJsonResult(resovleJsonResult);
+             //watch.Stop();
+             //UnityEngine.Debug.LogFormat("handleMsgAsyn  time {0}", watch.ElapsedMilliseconds);
          }
 
 
@@ -144,65 +152,64 @@ using System.Threading;
              if ((Lua.Instance != null) && Lua.Instance.IsRegisterLuaProfilerCallback())
                  Lua.Instance.SetFrameInfo();
 
-             if (sessionMsgList.Count>0 &&Time.realtimeSinceStartup - customerTime >= 1 && m_data != null)
+             if (m_data == null) return;
+             if (sessionMsgList.Count>0 &&Time.realtimeSinceStartup - customerTime >= 1.0f)
              {
                 customerTime = Time.realtimeSinceStartup;
-                m_strBuilder.Remove(0, m_strBuilder.Length);
-                 foreach(string msg  in sessionMsgList){
-                    m_strBuilder.Append(msg);
-                    m_strBuilder.Append(",");
-                 }
-                 string templateJsonText = "[$$]";
-                 //String2JsonAsyn string2Json = string2JsonAsyn;
-                 //string2Json.BeginInvoke(templateJsonText.Replace("$$", m_strBuilder.ToString()), handleSessionJsonObj, string2Json);
+              
+                Thread mThread = new Thread(new ParameterizedThreadStart(handleMsgAsyn));
+                mThread.Start(sessionMsgList.ToArray());
+                sessionMsgList.Clear();
+
                  if (sessionJsonObj.readerFlag)
                  {
-                     var job = sessionJsonObj.readJsonObj();
-                     if (job)
+                     ResovleSessionJsonResult result = sessionJsonObj.readResovleJsonResult();
+                     if (result != null)
                      {
-                         m_data.handleSessionJsonObj(job);
+                         m_data.m_hanoiData.callStats.Children.AddRange(result.DetailResult);
+                         var dataInfoMap = result.NavigateResult;
+                         GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_INCLUSIVE]);
+                         GraphIt2.Log(HanoiData.GRAPH_TIMECONSUMING, HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_TIMECONSUMING_EXCLUSIVE]);
+                         GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_INCLUSIVE]);
+                         GraphIt2.Log(HanoiData.GRAPH_TIME_PERCENT, HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE, dataInfoMap[HanoiData.SUBGRAPH_LUA_PERCENT_EXCLUSIVE]);
                          Repaint();
                      }
                  }
-
-                 Thread mThread = new Thread(new ParameterizedThreadStart(string2JsonAsyn));
-                 mThread.Start(templateJsonText.Replace("$$", m_strBuilder.ToString()));
-                 sessionMsgList.Clear();
              }
          }
 
          private void doTranslationAnimation()
          {
              float delta = targetTranslationX - m_Translation.x;
+             if (delta == 0)
+                 return;
              if (Mathf.Abs(delta) > targetTranslationInterval)
              {
                  if (delta > 0)
                  {
                      m_Translation.x += targetTranslationInterval;
-                     Repaint();
                  }else
                  {
                      m_Translation.x -= targetTranslationInterval;
-                     Repaint();
                  }
              }
              else
              {
                  m_Translation.x = targetTranslationX;
              }
+             Repaint();
          }
 
          public void onSessionMessage(string strInfo)
          {
              if (string.IsNullOrEmpty(strInfo))
                  return;
-             VisualizerWindow myWindow = (VisualizerWindow)EditorWindow.GetWindow(typeof(VisualizerWindow), true, "", false);
-             myWindow.sessionMsgList.Add(strInfo);
+             sessionMsgList.Add(strInfo);
          }
 
          void OnDestroy() {
-             if (Lua.Instance.IsRegisterLuaProfilerCallback())
-                 Lua.Instance.UnRegisterLuaProfilerCallback();
+              if (Lua.Instance.IsRegisterLuaProfilerCallback())
+                  Lua.Instance.UnRegisterLuaProfilerCallback();
          }
 
          public VisualizerWindow()
@@ -231,15 +238,15 @@ using System.Threading;
              }
              GUILayout.EndArea();
 
-             if (m_data.isHanoiDataLoadSucc())
+             if (m_data.isHanoiDataLoadSucc() && (EditorWindow.focusedWindow == this))
              {
                  CheckForInput();
                  //detail窗口内容
                  GUILayout.BeginArea(new Rect(0, m_detailScreenPosY, m_winWidth, m_detailScreenHeight));
                  {
                      Handles.matrix = Matrix4x4.TRS(m_Translation, Quaternion.identity, new Vector3(m_Scale.x, m_Scale.y, 1));
-                     
-                     HanoiUtil.TotalTimeConsuming = HanoiUtil.calculateTotalTimeConsuming(m_data.Root.callStats);
+
+                     HanoiUtil.m_ShowDigitMax = GetDrawingLengthByPanelPixels(1) / 1000.0f;
                      HanoiUtil.CalculateFrameInterval(m_data.Root.callStats, null);
                      calculateStackHeight();
 
@@ -261,7 +268,7 @@ using System.Threading;
              m_data.m_hanoiData = new HanoiRoot();
              m_data.Root.callStats = new HanoiNode(null);
              _selectedJsonFileIndex = _JsonFilesPath.Length - 1;
-             GraphItWindow2.mouseXOnLeftBtn = -1;
+             GraphItWindow2.MouseXOnLeftBtn = -1;
          }
 
          private void handleCommandEvent()
@@ -269,6 +276,7 @@ using System.Threading;
              if (Event.current.commandName.Equals("AppStarted"))
              {
                  if((Lua.Instance!=null) &&!Lua.Instance.IsRegisterLuaProfilerCallback())
+                 //if (Lua.Instance != null)
                  {
                      reInitHanoiRoot();
                      Lua.Instance.RegisterLuaProfilerCallback(this.onSessionMessage);
@@ -317,7 +325,6 @@ using System.Threading;
                  if (!loadJsonData(file))
                      throw new System.ArgumentException(string.Format("loading file `{0}` failed. ", file));
 
-                 HanoiUtil.TotalTimeConsuming = HanoiUtil.calculateTotalTimeConsuming(m_data.Root.callStats);
                  HanoiUtil.CalculateFrameInterval(m_data.Root.callStats, null);
                  calculateStackHeight();
              }
@@ -415,7 +422,7 @@ using System.Threading;
              if ((HanoiUtil.ScreenClipMaxX - HanoiUtil.ScreenClipMinX) / timeInterval > 200)
                  return;
 
-             timeInterval = Mathf.Max(timeInterval,0.001f);
+             timeInterval = Mathf.Max(timeInterval,0.01f);
              List<float> timeIntervalPosXList = new List<float>();
              float baseNum= (int)(HanoiUtil.ScreenClipMinX / timeInterval) * timeInterval;
              while (baseNum<HanoiUtil.ScreenClipMaxX)
@@ -446,13 +453,6 @@ using System.Threading;
             return interval;
          }
 
-         /// <summary>
-         /// 自动计算scale大小，使图形适配屏幕大小
-         /// </summary>
-         public void fitScreenSizeScale() {
-             float fitScaleX = m_winWidth / (HanoiUtil.TotalTimeConsuming);
-             m_Scale.x = fitScaleX;
-         }
 
          public void CheckForResizing()
          {
