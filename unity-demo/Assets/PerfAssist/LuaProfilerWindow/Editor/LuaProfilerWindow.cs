@@ -4,7 +4,7 @@ using System.Text;
 using System.Threading;
 using UnityEditor;
 using UnityEngine;
-     public class VisualizerWindow : EditorWindow
+     public class LuaProfilerWindow : EditorWindow
      {
          public enum MouseInArea
          {
@@ -107,12 +107,12 @@ using UnityEngine;
          }
 
          static SessionJsonObj  sessionJsonObj  = new SessionJsonObj();
-
-         [MenuItem("Window/"+Lua.g_editorWindow)]
+         
+         [MenuItem(PAEditorConst.MenuPath + "/LuaProfilerWindow")]
          static void Create()
          {
              //// Get existing open window or if none, make a new one:
-                VisualizerWindow m_window = (VisualizerWindow)EditorWindow.GetWindow(typeof(VisualizerWindow));
+                LuaProfilerWindow m_window = (LuaProfilerWindow)EditorWindow.GetWindow(typeof(LuaProfilerWindow));
                  m_window.Show();
                  m_window.wantsMouseMove = true;
                  m_window.CheckForResizing();
@@ -179,19 +179,7 @@ using UnityEngine;
              float delta = targetTranslationX - m_Translation.x;
              if (delta == 0)
                  return;
-             if (Mathf.Abs(delta) < targetTranslationInterval)
-                 m_Translation.x = targetTranslationX;
-             else
-             {
-                 if (delta > 0)
-                 {
-                     m_Translation.x += targetTranslationInterval;
-                 }
-                 else
-                 {
-                     m_Translation.x -= targetTranslationInterval;
-                 }
-             }                   
+             m_Translation.x = targetTranslationX;
              Repaint();
          }
 
@@ -207,7 +195,7 @@ using UnityEngine;
                   Lua.Instance.UnRegisterLuaProfilerCallback();
          }
 
-         public VisualizerWindow()
+         public LuaProfilerWindow()
          {
              refreshCheckJasonFilesUpadate();
          }

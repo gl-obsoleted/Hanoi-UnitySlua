@@ -22,7 +22,6 @@ public class GraphItWindowLuaPro : EditorWindow
     static float XStep = 4;
     public static float y_gap = 15.0f;
     static float y_offset = 0;
-    static int precision_slider = 3;
 
     static GUIStyle NameLabel;
     static GUIStyle SmallLabel;
@@ -159,8 +158,6 @@ public class GraphItWindowLuaPro : EditorWindow
             int graph_index = 0;
 
             //use this to get the starting y position for the GL rendering
-            Rect find_y = EditorGUILayout.BeginVertical(GUIStyle.none);
-            EditorGUILayout.EndVertical();
             float scrolled_y_pos = y_offset - mScrollPos.y;
             float scrolled_x_pos = x_offset - mScrollPos.x;
             if (Event.current.type == EventType.Repaint)
@@ -392,7 +389,7 @@ public class GraphItWindowLuaPro : EditorWindow
                                             {
                                                 MouseXOnPause = x0;
                                                 FrameIDOnPause = frameID;
-                                                VisualizerWindow myWindow = (VisualizerWindow)EditorWindow.GetWindow(typeof(VisualizerWindow));
+                                                LuaProfilerWindow myWindow = (LuaProfilerWindow)EditorWindow.GetWindow(typeof(LuaProfilerWindow));
                                                 myWindow.setFrameTimeOnPause(frameTime);
                                                 myWindow.setViewPointToGlobalTime(0, interval, mMouseX);
                                                 myWindow.m_isTestCallLua = false;

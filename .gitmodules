@@ -1,3 +1,6 @@
 [submodule "slua/build/Hanoi-Core"]
 	path = slua/build/Hanoi-Core
 	url = https://github.com/mc-gulu/Hanoi-Core.git
+[submodule "unity-demo/Assets/PerfAssist/PA_Common"]
+	path = unity-demo/Assets/PerfAssist/PA_Common
+	url = https://github.com/PerfAssist/PA_Common.git
