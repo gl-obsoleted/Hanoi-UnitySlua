@@ -1,28 +1,11 @@
 import "UnityEngine"
+
 function start()
-	--foo(1,2,3)
+	
 end
 
 function test()
-	local csharp = BindCSharp.staticCustom()
-	--local csharp = GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube)
-	if csharp then
-		print('create BindCSharp ok')
-		--csharp.ShowLogger('test bind csharp')
-	else
-		print('BindCSharp is nil')
-	end
-  --[[
-	BindCSharp.ShowLogger('test bind csharp')
-	local cube = GameObject.CreatePrimitive(UnityEngine.PrimitiveType.Cube)
-	local mat = cube:GetComponent(Renderer).material
-	mat.color=Color.red
-	cube.name="Script cube"
-
-	local pos = Vector3(10,10,10)+Vector3(1,1,1)
-	cube.transform.position = pos
-	cube.transform.localScale = Vector3(10,10,10)
-	]]--
+	
 end
 
 function main()
@@ -43,8 +26,68 @@ function foo1(a,b,c)
 	return a,b,c,"slua"
 end
 
+function Split(szFullString, szSeparator)  
+local nFindStartIndex = 1  
+local nSplitIndex = 1  
+local nSplitArray = {}  
+while true do  
+   local nFindLastIndex = string.find(szFullString, szSeparator, nFindStartIndex)  
+   if not nFindLastIndex then  
+    nSplitArray[nSplitIndex] = string.sub(szFullString, nFindStartIndex, string.len(szFullString))  
+    break  
+   end  
+   nSplitArray[nSplitIndex] = string.sub(szFullString, nFindStartIndex, nFindLastIndex - 1)  
+   nFindStartIndex = nFindLastIndex + string.len(szSeparator)  
+   nSplitIndex = nSplitIndex + 1  
+end  
+return nSplitArray  
+end  
+
+function foo6(a,b,c)
+	profiler_snapshot()
+end
+
 function foo(a,b,c)
-	foo1(a,b,c)
+	--local S1 = profiler_snapshot()
+	--[[
+	for k,v in pairs(S1) do
+			print('--{ ' .. v .. ' }--')
+	end
+	]]--
+	local t0 = {}
+	local t1 = {"hello","world",['three'] = t0}
+	local t2 = {"hello","lua"}
+	local s = "hello world"
+	local tmp = {['one'] = t1,t2,['two'] = 'hi'}
+	local function call()
+		print()
+	end
+	--print(t)
+	--print(t2)
+	--print(tmp)
+	--print('-----------------------')
+	local S2 = profiler_snapshot()
+	
+	local filename = "d:\\" .. os.time() .. "_snapshot.log"
+	local file = io.open(filename, 'w')
+	for k,v in pairs(S2) do
+		--if S1[k] == nil then
+			--print(k,v)
+			local key = string.gsub(tostring(k), 'userdata: ', '')
+			--local value = tostring(v)
+			--local array = Split(tostring(v),'\n')
+			local output = '--------{[key]=' .. tostring(key) .. '\n' .. tostring(v) .. '}\n'
+			file:write(output) 
+		
+		--else
+			--output = '{[key]=' .. tostring(k) .. '\n' .. tostring(v) .. '}\n'
+			--file:write(output)
+			 
+		--end
+		
+	end
+	file:close()
+	
 	return a,b,c,"slua"
 end
 

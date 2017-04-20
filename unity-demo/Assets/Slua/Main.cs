@@ -92,7 +92,7 @@ public class Main : MonoBehaviour
 
     public void onClickCall()
     {
-        if(isStarted)
+        //if(isStarted)
         {
             Lua.Instance.m_LuaSvr.luaState.getFunction("foo").call(1, 2, 3);
             Lua.Instance.SetFrameInfo();
@@ -133,7 +133,7 @@ public class Main : MonoBehaviour
 
     public void onClickLuaCallCSharp()
     {
-        if(isStarted)
+        //if(isStarted)
         {
             Lua.Instance.m_LuaSvr.luaState.getFunction("test").call();
         }
