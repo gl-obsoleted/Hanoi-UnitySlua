@@ -1,11 +1,13 @@
-import "UnityEngine"
+
+--end import "UnityEngine"
+require "test"
 
 function start()
 	
 end
 
 function test()
-	
+	local tt = {["hello"] = "world",["hi"] = {}}
 end
 
 function main()
@@ -40,14 +42,154 @@ while true do
    nFindStartIndex = nFindLastIndex + string.len(szSeparator)  
    nSplitIndex = nSplitIndex + 1  
 end  
-return nSplitArray  
-end  
+return nSplitArray,nSplitIndex  
+end
 
-function foo6(a,b,c)
+function foo5(a,b,c)
+	local t0 = {}
+	local t1 = {"hello","world",['three'] = t0}
+	local t2 = {"hello","lua"}
+	local s = "hello world"
+	local tmp = {['one'] = t1,t2,['two'] = 'hi'}
 	profiler_snapshot()
 end
 
+function fo()
+	testMethod()
+end
+	 
+function foo0()
+	--local t = {}
+	fo()
+end	
+
+
+
 function foo(a,b,c)
+	--profiler_snapshot()
+	local count = 0
+	local rf = io.open("c:\\hook.csv",'r')
+	local output = ""
+	local idx = 0
+	local key = ""
+	local func_map = {}
+	local funl_map = {}
+	local index = 1
+	
+	for line in rf:lines() do
+		local s = line
+		local find = string.find(s,",")
+		if find then
+			index = index + 1
+			local arr,count = Split(s,',')
+			if arr[4] ~= "C" then
+				if  count >= 9 and arr[count] ~= nil and string.len(tostring(arr[count])) > 0 then
+					local name = arr[1] .. "_" .. arr[3] .. "_" .. arr[5] .. "_" .. arr[6] .. "_" .. arr[7]
+					if funl_map[name] ~= nil then
+						funl_map[name][6] = funl_map[name][6] + tonumber(arr[count])
+						funl_map[name][7] = funl_map[name][7] + 1 
+					else
+						local t = {}
+						t[1] = arr[1] --name
+						t[2] = arr[3] --source
+						t[3] = arr[5] --linedefined
+						t[4] = arr[6] --lastlinedefined
+						t[5] = arr[7] --currentline
+						t[6] = tonumber(arr[count]) --size
+						t[7] = 1      --count
+						funl_map[name] = t
+					end
+				end
+			else
+				if  count >= 9 and arr[count] ~= nil and string.len(tostring(arr[count])) > 0 then
+					local name = arr[1] .. "_" .. arr[3] .. "_" .. arr[5] .. "_" .. arr[6] .. "_" .. arr[7]
+					if func_map[name] ~= nil then
+						func_map[name][6] = func_map[name][6] + tonumber(arr[count])
+						func_map[name][7] = func_map[name][7] + 1 
+					else
+						local t = {}
+						t[1] = arr[1] --name
+						t[2] = arr[3] --source
+						t[3] = arr[5] --linedefined
+						t[4] = arr[6] --lastlinedefined
+						t[5] = arr[7] --currentline
+						t[6] = tonumber(arr[count]) --size
+						t[7] = 1      --count
+						func_map[name] = t
+					end
+				end
+			end
+		end				
+	end
+	rf:close()
+	local d = os.date()
+	local dr = Split(d," ")
+	local t = Split(dr[4],":")
+	local fs = dr[5] .. "-" .. dr[2] .. "-" .. dr[3] .. "-" .. t[1] .. "_" .. t[2] .. "_" .. t[3]	
+	local wfpl = "c:\\" .. fs .. "_Lua_log.csv"
+	local wf = io.open(wfpl,'w')
+	output = "function,source,linedefined,lastlinedefined,currentline,totalalloc(char),totalcall,peralloc(char)\n"
+	wf:write(output)
+	for k,v in pairs(funl_map) do
+		local name = ""
+		if v[1] == "none" then
+			name = v[2]
+		else
+			name = v[1]
+		end
+		output = name .. "," .. tostring(v[2]) .. "," .. tostring(v[3]) .. "," .. tostring(v[4]) .. "," .. tostring(v[5]) .. "," .. tostring(v[6]) .. "," .. tostring(v[7]) .. "," .. tostring(v[6]/v[7]) .. "\n"
+		wf:write(output)
+	end
+	wf:close()
+	local wfpc = "c:\\" .. fs .. "_C_log.csv"
+	wf = io.open(wfpc,'w')
+	output = "function,source,linedefined,lastlinedefined,currentline,totalalloc(char),totalcall,peralloc(char)\n"
+	wf:write(output)
+	for k,v in pairs(func_map) do
+		local name = v[1]
+		output = name .. "," .. tostring(v[2]) .. "," .. tostring(v[3]) .. "," .. tostring(v[4]) .. "," .. tostring(v[5]) .. "," .. tostring(v[6]) .. "," .. tostring(v[7]) .. "," .. tostring(v[6]/v[7]) .. "\n"
+		wf:write(output)
+	end
+	wf:close()
+end
+
+function foo6(a,b,c)
+	--profiler_snapshot()
+	local count = 0
+	local rf = io.open("d:\\snapshot.log",'r')
+	local wfp = "d:\\" .. os.time() .. "_snapshot.csv"
+	local wf = io.open(wfp,'w')
+	local output = ""
+	local idx = 0
+	local key = ""
+	for line in rf:lines() do
+		local s = line
+		local find = string.find(s,":")
+		if find then
+			if string.len(output) > 0 then
+				output = output .. "," .. tostring(count) .. "\n"
+				wf:write(output)
+				output = ""
+				count = 0
+			end
+			idx = idx + 1
+			local addr = string.sub(s,1,find - 1)
+			local name = string.sub(s,find + 1,string.len(s))
+			output = tostring(idx) .. "," .. name .. "," .. addr
+		else
+			count = count + 1
+			--key = key .. " " .. s
+		end				
+	end
+	if string.len(output) > 0 then
+		output = output .. "," .. tostring(count) .. "\n"
+		wf:write(output)
+	end
+	wf:close()
+	rf:close()
+end
+
+function foo7(a,b,c)
 	--local S1 = profiler_snapshot()
 	--[[
 	for k,v in pairs(S1) do

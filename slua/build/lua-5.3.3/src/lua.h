@@ -11,7 +11,8 @@
 
 #include <stdarg.h>
 #include <stddef.h>
-
+#include <stddef.h>
+#include <stdio.h>
 
 #include "luaconf.h"
 
@@ -137,6 +138,12 @@ typedef void * (*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
 ** RCS ident string
 */
 extern const char lua_ident[];
+
+
+LUA_API FILE* g_fHookAllocFile;
+LUA_API int g_iHookFunc;
+LUA_API int g_nHookSize;
+LUA_API void lprofP_outputToFile(FILE* file, const char* format, ...);
 
 
 /*
