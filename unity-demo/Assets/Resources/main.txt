@@ -6,7 +6,7 @@ function start()
 	
 end
 
-function test()
+function test2()
 	local tt = {["hello"] = "world",["hi"] = {}}
 end
 
@@ -101,7 +101,7 @@ function foo(a,b,c)
 					end
 				end
 			else
-				if  count >= 9 and arr[count] ~= nil and string.len(tostring(arr[count])) > 0 then
+				if  count >= 9 and arr[count] ~= nil and string.len(tostring(arr[count])) > 0 and tostring(arr[1]) ~= "none" then
 					local name = arr[1] .. "_" .. arr[3] .. "_" .. arr[5] .. "_" .. arr[6] .. "_" .. arr[7]
 					if func_map[name] ~= nil then
 						func_map[name][6] = func_map[name][6] + tonumber(arr[count])
@@ -125,7 +125,9 @@ function foo(a,b,c)
 	local d = os.date()
 	local dr = Split(d," ")
 	local t = Split(dr[4],":")
-	local fs = dr[5] .. "-" .. dr[2] .. "-" .. dr[3] .. "-" .. t[1] .. "_" .. t[2] .. "_" .. t[3]	
+	--local fs = dr[5] .. "-" .. dr[2] .. "-" .. dr[3] .. "-" .. t[1] .. "_" .. t[2] .. "_" .. t[3]	
+	local t = string.gsub(d," ","_")
+	local fs = string.gsub(t,":","-")
 	local wfpl = "c:\\" .. fs .. "_Lua_log.csv"
 	local wf = io.open(wfpl,'w')
 	output = "function,source,linedefined,lastlinedefined,currentline,totalalloc(char),totalcall,peralloc(char)\n"
@@ -153,15 +155,18 @@ function foo(a,b,c)
 	wf:close()
 end
 
-function foo6(a,b,c)
-	--profiler_snapshot()
+function test()
 	local count = 0
-	local rf = io.open("d:\\snapshot.log",'r')
-	local wfp = "d:\\" .. os.time() .. "_snapshot.csv"
+	local path = "H:\\JX3M\\Server\\go\\workWin\\scene_server\\lua_snapshot\\"
+	local fn = "1496822339"
+	local suf = ".json"
+	local file = (path .. fn .. suf)
+	local rf = io.open(file,'r')
+	local wfp = path .. fn .. "_snapshot.csv"
 	local wf = io.open(wfp,'w')
 	local output = ""
-	local idx = 0
 	local key = ""
+	wf:write("name,address,count\n")
 	for line in rf:lines() do
 		local s = line
 		local find = string.find(s,":")
@@ -172,12 +177,13 @@ function foo6(a,b,c)
 				output = ""
 				count = 0
 			end
-			idx = idx + 1
 			local addr = string.sub(s,1,find - 1)
 			local name = string.sub(s,find + 1,string.len(s))
-			output = tostring(idx) .. "," .. name .. "," .. addr
+			output = name .. "," .. tostring(addr)
 		else
-			count = count + 1
+			if string.len(s) > 0 then
+				count = count + 1
+			end
 			--key = key .. " " .. s
 		end				
 	end
