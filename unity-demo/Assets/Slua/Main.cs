@@ -135,7 +135,8 @@ public class Main : MonoBehaviour
     {
         //if(isStarted)
         {
-            Lua.Instance.m_LuaSvr.luaState.getFunction("test").call();
+            //Lua.Instance.m_LuaSvr.luaState.getFunction("test").call();
+            Lua.Instance.m_LuaSvr.luaState.getFunction("EventFilter").call();
         }
     }
 }

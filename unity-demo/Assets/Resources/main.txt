@@ -157,9 +157,9 @@ end
 
 function test()
 	local count = 0
-	local path = "H:\\JX3M\\Server\\go\\workWin\\scene_server\\lua_snapshot\\"
-	local fn = "1496822339"
-	local suf = ".json"
+	local path = "C:\\Users\\xuerui\\AppData\\LocalLow\\Kingsoft\\ABJX3Pocket\\LuaProfiler\\"
+	local fn = "1510219252"
+	local suf = "_lua_snapshoot.json"
 	local file = (path .. fn .. suf)
 	local rf = io.open(file,'r')
 	local wfp = path .. fn .. "_snapshot.csv"
@@ -179,7 +179,8 @@ function test()
 			end
 			local addr = string.sub(s,1,find - 1)
 			local name = string.sub(s,find + 1,string.len(s))
-			output = name .. "," .. tostring(addr)
+			local filter = string.gsub(name,","," ")
+			output = filter .. "," .. tostring(addr)
 		else
 			if string.len(s) > 0 then
 				count = count + 1
@@ -240,4 +241,139 @@ function foo7(a,b,c)
 end
 
 function stop()
+end
+
+local g_callstack = {}
+function getcallstack()
+	local path = "d:\\callstacktable.csv"
+	local path2 = "d:\\callstack2.csv"
+	local name = ""
+	local callstack = ""
+	local rf = io.open(path,'r')
+	--local rf2 = io.open(path2,'w')
+	local begin = 0
+	local cs = ""
+	local s = ""
+	local key = ""
+	local value = ""
+	if rf then 
+		for line in rf:lines() do
+	  	s = line 
+	  	if begin == 1 then
+	  		local findend = string.find(s,"end")
+				if findend then 
+					begin = 0
+					g_callstack[key] = value
+					--local content = key .. " : " .. value .. "\n"
+					--rf2:write(content)
+				else
+					value = value .. s .. "\n"
+				end
+			else
+		  	local findbegin = string.find(s,"begin")
+				if findbegin then
+					if begin == 0 then
+						begin = 1
+						value = ""
+						key = string.sub(s,8,string.len(s))
+					--print("key= " .. findbegin)
+					end
+				end
+			end
+		end
+		rf:close()
+		--rf2:close()
+	else
+		print("open file failed")
+	end 
+end
+
+
+function createwritetable()
+	getcallstack()
+	local count = 0
+	local path = "d:\\eventtable.csv"
+	local rf = io.open(path,'r')
+	local begin = 0
+	local tbl = {}
+	local path2 = "d:\\count_funccall_stack.csv"
+	local rf2 = io.open(path2,'w')
+	local path3 = "d:\\countfunc.csv"
+	local rf3 = io.open(path3,'w')
+	for line in rf:lines() do
+		local s = line
+		if 1 == begin then 
+		   local findend = string.find(s,"EnterHome")
+		   if findend then
+		   	for k,v in pairs(tbl) do
+		   		local content = v .. ',' .. k .. "\n" .. g_callstack[k]
+		   		local content2 = v .. '\t' .. tostring(k) .. '\n'
+		   		rf3:write(content2)
+		   		rf2:write(content)
+		   	end
+		   	break
+		   else
+		   	local find2 = string.find(s," - ")
+		   	if find2 then
+		   	  	local array,count = Split(tostring(s),' - ')
+		   	  	local key = array[1]
+		   	  	if tbl[key] == nil then
+		   	  		tbl[key] = 1
+		   	  	else
+		   	  		tbl[key] = tbl[key] + 1
+		   	  	end
+		   	end
+		   end
+		else
+			local find = string.find(s,"EnterPVP")
+			if find then
+			 begin = 1
+			end
+		end 
+	end
+	rf:close()
+	rf2:close()
+	rf3:close()
+end
+
+function EventFilter()
+	local path = "d:\\StatisticsFileEvent.csv"
+	local rf = io.open(path,'r')
+	local tbl = {}
+	for line in rf:lines() do
+		local s = line
+		local find = string.find(s,",")
+		local key = string.sub(s,find + 1,string.len(s))
+		--print(key)
+		if tbl[key] then
+			tbl[key] = tbl[key] + 1
+		else
+			tbl[key] = 1
+		end
+	end
+	rf:close()
+
+	local tbl2 = {}
+	local path2 = "d:\\StatisticsFileInfo.csv"
+	local rf2 = io.open(path2,'r')
+	for line2 in rf2:lines() do
+		local s2 = line2
+		local find2 = string.find(s2,",")
+		if find2 then
+			local key2 = string.sub(s2,1,find2 - 1)
+			local value2 = string.sub(s2,find2+1,string.len(s2)) 
+			--print(key2 .. "  " .. value2)
+			tbl2[key2] = value2
+		end
+	end
+	rf2:close()
+
+	local path3 = "d:\\StatisticsFileEventFilter.csv"
+	local rf3 = io.open(path3,'w')
+	for k,v in pairs(tbl) do 
+	  local content = k .. "," .. v .. "," .. tbl2[k] .. "\n"
+		rf3:write(content)
+	end
+	rf3:close()
+
 end
